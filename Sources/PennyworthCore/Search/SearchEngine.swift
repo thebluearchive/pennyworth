@@ -42,12 +42,15 @@ extension SearchProvider {
     public func suggestions(for query: SearchQuery) async -> [SearchResult] { [] }
 }
 
-/// Fans a query out to every provider and merges the results by score.
+/// Fans a query out to every provider and merges the results by score, boosted by
+/// what the user picked before.
 public struct SearchEngine: Sendable {
     public var providers: [any SearchProvider]
+    public var history: SelectionHistory?
 
-    public init(providers: [any SearchProvider]) {
+    public init(providers: [any SearchProvider], history: SelectionHistory? = nil) {
         self.providers = providers
+        self.history = history
     }
 
     public func search(_ raw: String, limit: Int = 50) async -> [SearchResult] {
@@ -59,7 +62,7 @@ public struct SearchEngine: Sendable {
             provider.keyword.flatMap(query.removingKeyword).map { (provider, $0) }
         }
 
-        let results = await withTaskGroup(of: [SearchResult].self) { group in
+        var results = await withTaskGroup(of: [SearchResult].self) { group in
             if claimed.isEmpty {
                 for provider in providers {
                     group.addTask {
@@ -75,6 +78,11 @@ public struct SearchEngine: Sendable {
             return await group.reduce(into: []) { $0 += $1 }
         }
         guard !Task.isCancelled else { return [] }
+        if let boosts = history?.boosts(for: raw), !boosts.isEmpty {
+            for index in results.indices {
+                results[index].score += boosts[results[index].id] ?? 0
+            }
+        }
         return Array(results.sorted(by: Self.ranksBefore).prefix(limit))
     }
 

@@ -23,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var applications = ApplicationProvider()
     private var bookmarks: FirefoxBookmarkProvider?
     private let themeProvider = ThemeProvider()
+    private let history = SelectionHistory(file: Paths.historyFile)
     private var launcher: LauncherController!
     private var statusMenu: StatusMenu!
     private var configWatcher: FileWatcher?
@@ -47,6 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         launcher.isHeadless = typing != nil || snapshot != nil
         launcher.themeLookup = { [weak self] id in self?.themes.theme(withID: id) }
         launcher.onCommand = { [weak self] command in self?.perform(command) }
+        launcher.onPick = { [weak self] query, result in self?.learn(query: query, result: result) }
         // Bookmarks change while Firefox runs; checking is cheap when they haven't.
         launcher.onShow = { [weak self] in self?.reloadBookmarks() }
         statusMenu = StatusMenu(app: self)
@@ -152,6 +154,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    var hasLearnedRankings: Bool { !history.isEmpty }
+
+    func forgetLearnedRankings() {
+        history.clear()
+        saveHistory()
+    }
+
+    private func learn(query: String, result: SearchResult) {
+        history.record(query: query, resultID: result.id)
+        saveHistory()
+    }
+
+    private func saveHistory() {
+        let history = history
+        Task.detached(priority: .utility) {
+            do {
+                try history.save()
+            } catch {
+                log.error("Couldn't save learned rankings: \(error.localizedDescription)")
+            }
+        }
+    }
+
     func openConfigFolder() {
         if !FileManager.default.fileExists(atPath: configStore.url.path) {
             saveConfig()
@@ -206,7 +231,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func updateEngine() {
         let providers: [(any SearchProvider)?] = [applications, bookmarks, themeProvider]
-        launcher.model.engine = SearchEngine(providers: providers.compactMap { $0 })
+        launcher.model.engine = SearchEngine(providers: providers.compactMap { $0 }, history: history)
         launcher.model.refresh()
     }
 

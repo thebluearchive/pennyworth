@@ -56,7 +56,7 @@ enum PennyworthApp {
             print("Read \(bookmarks.bookmarks.count) Firefox bookmarks" + (bookmarks.problem.map { " (\($0))" } ?? ""))
             providers.append(bookmarks)
         }
-        let engine = SearchEngine(providers: providers)
+        let engine = SearchEngine(providers: providers, history: SelectionHistory(file: Paths.historyFile))
         let done = DispatchSemaphore(value: 0)
         Task.detached {
             for result in await engine.search(query, limit: 15) {

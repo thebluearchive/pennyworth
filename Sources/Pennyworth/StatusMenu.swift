@@ -14,6 +14,8 @@ final class StatusMenu: NSObject, NSMenuDelegate {
             systemSymbolName: "magnifyingglass", accessibilityDescription: "Pennyworth")
         let menu = NSMenu()
         menu.delegate = self
+        // Items are enabled or disabled explicitly (e.g. Forget Learned Rankings).
+        menu.autoenablesItems = false
         item.menu = menu
     }
 
@@ -32,6 +34,9 @@ final class StatusMenu: NSObject, NSMenuDelegate {
 
         menu.addItem(ActionMenuItem("Open Config Folder") { app.openConfigFolder() })
         menu.addItem(ActionMenuItem("Reload Config") { app.reloadSettings() })
+        let forget = ActionMenuItem("Forget Learned Rankings") { app.forgetLearnedRankings() }
+        forget.isEnabled = app.hasLearnedRankings
+        menu.addItem(forget)
 
         let problems = app.problems
         if !problems.isEmpty {

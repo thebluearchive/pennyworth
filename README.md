@@ -30,7 +30,10 @@ To start it at login, add it under System Settings → General → Login Items.
 | ⇥ | Autocomplete the selected result |
 | ⎋ | Close |
 
-Multi-word queries match in any order.
+Multi-word queries match in any order. Pennyworth learns from what you open: pick
+Chrome after typing `c` and `c` ranks Chrome higher next time (picks fade over a couple
+of months; reset with **Forget Learned Rankings** in the menu bar menu). Learned
+rankings are stored in `~/Library/Application Support/Pennyworth/knowledge.json`.
 
 **Firefox bookmarks:** type `b` and a space, then your search (`b vento`). Bookmarks
 match by title, and also by URL, folder, tags and Firefox keyword (an exact Firefox

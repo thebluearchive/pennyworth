@@ -11,6 +11,8 @@ private let log = Logger(subsystem: "dev.pennyworth", category: "launcher")
 final class LauncherController: NSObject, NSWindowDelegate {
     let model: LauncherModel
     var onCommand: ((LauncherCommand) -> Void)?
+    /// Called with the query and the result when the user opens or acts on a result.
+    var onPick: ((String, SearchResult) -> Void)?
     /// For scripted debug runs: show the panel off-screen without taking keyboard focus,
     /// so it neither interrupts nor picks up the user's typing.
     var isHeadless = false
@@ -252,7 +254,12 @@ final class LauncherController: NSObject, NSWindowDelegate {
     private func activate(index: Int, alternate: Bool) {
         guard model.results.indices.contains(index) else { return }
         let result = model.results[index]
-        perform(alternate ? result.alternateAction ?? result.action : result.action)
+        let action = alternate ? result.alternateAction ?? result.action : result.action
+        // Completing a keyword isn't a choice worth learning.
+        if case .autocomplete = action {} else {
+            onPick?(model.query, result)
+        }
+        perform(action)
     }
 
     private func perform(_ action: ResultAction) {

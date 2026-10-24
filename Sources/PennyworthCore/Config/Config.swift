@@ -54,6 +54,18 @@ public enum Paths {
     }
 
     public static var configFile: URL { configDirectory.appendingPathComponent("config.json") }
+
+    /// Data the app keeps for itself: `$XDG_STATE_HOME/pennyworth` if set, otherwise
+    /// `~/Library/Application Support/Pennyworth`.
+    public static var stateDirectory: URL {
+        if let state = ProcessInfo.processInfo.environment["XDG_STATE_HOME"], !state.isEmpty {
+            return URL(fileURLWithPath: state, isDirectory: true).appendingPathComponent("pennyworth")
+        }
+        return FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/Pennyworth", isDirectory: true)
+    }
+
+    public static var historyFile: URL { stateDirectory.appendingPathComponent("knowledge.json") }
     public static var themesDirectory: URL { configDirectory.appendingPathComponent("themes", isDirectory: true) }
 }
 
