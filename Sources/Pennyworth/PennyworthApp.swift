@@ -23,10 +23,15 @@ enum PennyworthApp {
         // screen recording permission). Combine with `--show <query>` and `--theme <id>`.
         let snapshot = value(after: "--snapshot", in: arguments).map { URL(fileURLWithPath: $0) }
 
+        // `--type <text>` types into the launcher one key at a time (every 40 ms, or
+        // `--type-interval <ms>`), through the same path as the keyboard.
+        let typing = value(after: "--type", in: arguments)
+        let typingInterval = value(after: "--type-interval", in: arguments).flatMap(Int.init) ?? 40
+
         let app = NSApplication.shared
         let delegate = AppDelegate(
             initialQuery: initialQuery, themeOverride: value(after: "--theme", in: arguments),
-            snapshot: snapshot)
+            snapshot: snapshot, typing: typing.map { ($0, .milliseconds(typingInterval)) })
         app.delegate = delegate
         app.setActivationPolicy(.accessory)
         withExtendedLifetime(delegate) { app.run() }

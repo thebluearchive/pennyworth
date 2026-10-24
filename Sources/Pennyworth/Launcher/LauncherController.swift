@@ -77,6 +77,25 @@ final class LauncherController: NSObject, NSWindowDelegate {
         hide()
     }
 
+    /// Types into the search field via the field editor, like the keyboard does. `↓ ↑ ⇥ ↩`
+    /// are sent as key events through the event queue. For debugging.
+    func simulateTyping(_ text: String, interval: Duration) async {
+        let keys: [Character: Int] = ["↓": kVK_DownArrow, "↑": kVK_UpArrow, "⇥": kVK_Tab, "↩": kVK_Return]
+        for character in text {
+            if let keyCode = keys[character],
+               let event = NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: panel.windowNumber, context: nil, characters: "", charactersIgnoringModifiers: "",
+                isARepeat: false, keyCode: UInt16(keyCode)) {
+                NSApp.postEvent(event, atStart: false)
+            } else {
+                (panel.firstResponder as? NSTextView)?.insertText(
+                    String(character), replacementRange: NSRange(location: NSNotFound, length: 0))
+            }
+            try? await Task.sleep(for: interval)
+        }
+    }
+
     /// Renders the panel's content to a PNG, for previews and debugging.
     func writeSnapshot(to url: URL) throws {
         guard let view = panel.contentView,

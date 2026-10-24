@@ -27,7 +27,9 @@ struct LauncherView: View {
                 Rectangle()
                     .fill(colors.separator.color)
                     .frame(height: 1)
-                ResultList(model: model, onActivate: onActivate)
+                ResultList(
+                    results: model.results, selection: model.selection, theme: theme,
+                    onActivate: onActivate)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -38,18 +40,19 @@ struct LauncherView: View {
 }
 
 private struct ResultList: View {
-    let model: LauncherModel
+    let results: [SearchResult]
+    let selection: Int
+    let theme: Theme
     let onActivate: (Int) -> Void
 
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.vertical) {
                 LazyVStack(spacing: 0) {
-                    ForEach(Array(model.results.enumerated()), id: \.element.id) { index, result in
+                    ForEach(Array(results.enumerated()), id: \.element.id) { index, result in
                         ResultRow(
                             result: result, index: index,
-                            isSelected: index == model.selection, theme: model.activeTheme)
-                            .id(index)
+                            isSelected: index == selection, theme: theme)
                             .contentShape(Rectangle())
                             .onTapGesture { onActivate(index) }
                     }
@@ -57,8 +60,12 @@ private struct ResultList: View {
                 .padding(LauncherLayout.listPadding)
             }
             .scrollIndicators(.never)
-            .onChange(of: model.selection) { _, selection in
-                proxy.scrollTo(selection)
+            // Scroll by result id: an extra `.id(index)` on rows fights ForEach's identity
+            // and makes LazyVStack keep showing old rows as results change.
+            .onChange(of: selection) { _, selection in
+                if results.indices.contains(selection) {
+                    proxy.scrollTo(results[selection].id)
+                }
             }
         }
     }

@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let initialQuery: String?
     private let themeOverride: String?
     private let snapshot: URL?
+    private let typing: (text: String, interval: Duration)?
     private let configStore = ConfigStore()
 
     private(set) var config = Config()
@@ -27,10 +28,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var configWatcher: FileWatcher?
     private var applicationsWatcher: FileWatcher?
 
-    init(initialQuery: String?, themeOverride: String? = nil, snapshot: URL? = nil) {
+    init(
+        initialQuery: String?, themeOverride: String? = nil, snapshot: URL? = nil,
+        typing: (text: String, interval: Duration)? = nil
+    ) {
         self.initialQuery = initialQuery
         self.themeOverride = themeOverride
         self.snapshot = snapshot
+        self.typing = typing
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -58,17 +63,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             launcher.show()
             launcher.model.setQuery(initialQuery)
         }
-        if let snapshot {
-            Task { @MainActor in
-                // Give the app scan and SwiftUI a moment to settle.
-                try? await Task.sleep(for: .seconds(1.5))
-                do {
-                    try launcher.writeSnapshot(to: snapshot)
-                } catch {
-                    FileHandle.standardError.write(Data("Snapshot failed: \(error)\n".utf8))
-                }
-                NSApp.terminate(nil)
+        if typing != nil || snapshot != nil {
+            runDebugScript()
+        }
+    }
+
+    /// `--type` and `--snapshot`: type into the launcher, then render it and quit.
+    private func runDebugScript() {
+        Task { @MainActor in
+            if let typing {
+                if !launcher.isVisible { launcher.show() }
+                try? await Task.sleep(for: .milliseconds(300))
+                await launcher.simulateTyping(typing.text, interval: typing.interval)
             }
+            guard let snapshot else { return }
+            // Give the app scan and SwiftUI a moment to settle.
+            try? await Task.sleep(for: .seconds(1.5))
+            let model = launcher.model
+            print("query=\"\(model.query)\" selection=\(model.selection) \(model.selectedResult?.title ?? "-") results=\(model.results.prefix(5).map(\.title))")
+            do {
+                try launcher.writeSnapshot(to: snapshot)
+            } catch {
+                FileHandle.standardError.write(Data("Snapshot failed: \(error)\n".utf8))
+            }
+            NSApp.terminate(nil)
         }
     }
 

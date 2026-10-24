@@ -115,7 +115,11 @@ Debug flags for the app binary (`dist/Pennyworth.app/Contents/MacOS/Pennyworth`)
 - `--search <query>` prints ranked results and exits
 - `--show [query]` opens the launcher at startup
 - `--theme <id>` uses a theme without saving it
+- `--type <text>` types into the launcher one key at a time (`↓ ↑ ⇥ ↩` are sent as keys;
+  `--type-interval <ms>` sets the pace)
 - `--snapshot <file.png>` renders the launcher to an image and quits (no screen recording permission needed)
+
+For example, `--type "fire↓" --snapshot /tmp/out.png` reproduces typing and moving the selection.
 
 The Makefile uses SwiftPM's native build system because the newer default fails on
 machines with a malformed SDK in `/Library/Developer/CommandLineTools/SDKs`. Override
