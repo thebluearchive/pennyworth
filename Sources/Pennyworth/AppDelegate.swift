@@ -44,6 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             engine: SearchEngine(providers: []), theme: currentTheme,
             maxVisibleResults: config.maxVisibleResults)
         launcher = LauncherController(model: model)
+        launcher.isHeadless = typing != nil || snapshot != nil
         launcher.themeLookup = { [weak self] id in self?.themes.theme(withID: id) }
         launcher.onCommand = { [weak self] command in self?.perform(command) }
         // Bookmarks change while Firefox runs; checking is cheap when they haven't.

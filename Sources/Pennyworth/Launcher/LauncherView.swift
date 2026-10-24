@@ -28,7 +28,7 @@ struct LauncherView: View {
                     .fill(colors.separator.color)
                     .frame(height: 1)
                 ResultList(
-                    results: model.results, selection: model.selection, theme: theme,
+                    results: model.results, window: model.window, theme: theme,
                     onActivate: onActivate)
             }
         }
@@ -39,41 +39,59 @@ struct LauncherView: View {
     }
 }
 
+/// Shows only the rows in `window`, so the list always scrolls by whole rows.
 private struct ResultList: View {
     let results: [SearchResult]
-    let selection: Int
+    let window: ResultWindow
     let theme: Theme
     let onActivate: (Int) -> Void
 
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.vertical) {
-                LazyVStack(spacing: 0) {
-                    ForEach(Array(results.enumerated()), id: \.element.id) { index, result in
-                        ResultRow(
-                            result: result, index: index,
-                            isSelected: index == selection, theme: theme)
-                            .contentShape(Rectangle())
-                            .onTapGesture { onActivate(index) }
-                    }
-                }
-                .padding(LauncherLayout.listPadding)
+        VStack(spacing: 0) {
+            ForEach(window.visible, id: \.self) { index in
+                ResultRow(
+                    result: results[index], shortcut: index - window.first + 1,
+                    isSelected: index == window.selection, theme: theme)
+                    .contentShape(Rectangle())
+                    .onTapGesture { onActivate(index) }
             }
-            .scrollIndicators(.never)
-            // Scroll by result id: an extra `.id(index)` on rows fights ForEach's identity
-            // and makes LazyVStack keep showing old rows as results change.
-            .onChange(of: selection) { _, selection in
-                if results.indices.contains(selection) {
-                    proxy.scrollTo(results[selection].id)
-                }
+        }
+        .padding(LauncherLayout.listPadding)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .overlay(alignment: .trailing) {
+            if results.count > window.size {
+                ScrollPosition(window: window, color: theme.colors.secondaryText.color)
             }
         }
     }
 }
 
+/// A slim indicator of where the visible rows sit in the full list.
+private struct ScrollPosition: View {
+    let window: ResultWindow
+    let color: Color
+
+    var body: some View {
+        GeometryReader { geometry in
+            let track = geometry.size.height
+            let thumb = max(track * CGFloat(window.size) / CGFloat(window.count), 12)
+            let travel = CGFloat(window.count - window.size)
+            let offset = travel > 0 ? (track - thumb) * CGFloat(window.first) / travel : 0
+            Capsule()
+                .fill(color.opacity(0.35))
+                .frame(width: 3, height: thumb)
+                .offset(y: offset)
+        }
+        .frame(width: 3)
+        .padding(.vertical, LauncherLayout.listPadding + 4)
+        .padding(.trailing, 2)
+    }
+}
+
 private struct ResultRow: View {
     let result: SearchResult
-    let index: Int
+    /// The ⌘ number for this row (1 is the top visible row); shown for 1–9.
+    let shortcut: Int
     let isSelected: Bool
     let theme: Theme
 
@@ -97,8 +115,8 @@ private struct ResultRow: View {
                 }
             }
             Spacer(minLength: 8)
-            if index < 9 {
-                Text("⌘\(index + 1)")
+            if shortcut <= 9 {
+                Text("⌘\(shortcut)")
                     .font(.system(size: 12, weight: .medium, design: .rounded))
                     .foregroundStyle(secondary)
             }

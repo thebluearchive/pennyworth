@@ -26,7 +26,7 @@ To start it at login, add it under System Settings → General → Login Items.
 | ↑ ↓ or ⌃N ⌃P / ⌃J ⌃K | Move selection |
 | ↩ | Open |
 | ⌘↩ | Reveal app in Finder · copy bookmark URL |
-| ⌘1 – ⌘9 | Open the nth result |
+| ⌘1 – ⌘9 | Open the nth visible result |
 | ⇥ | Autocomplete the selected result |
 | ⎋ | Close |
 
@@ -125,6 +125,9 @@ Debug flags for the app binary (`dist/Pennyworth.app/Contents/MacOS/Pennyworth`)
 - `--type <text>` types into the launcher one key at a time (`↓ ↑ ⇥ ↩` are sent as keys;
   `--type-interval <ms>` sets the pace)
 - `--snapshot <file.png>` renders the launcher to an image and quits (no screen recording permission needed)
+
+With `--type` or `--snapshot` the panel is drawn off-screen and never takes keyboard focus,
+so scripted runs don't interfere with whatever you're typing.
 
 For example, `--type "fire↓" --snapshot /tmp/out.png` reproduces typing and moving the selection.
 

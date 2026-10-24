@@ -11,12 +11,18 @@ private let log = Logger(subsystem: "dev.pennyworth", category: "launcher")
 final class LauncherController: NSObject, NSWindowDelegate {
     let model: LauncherModel
     var onCommand: ((LauncherCommand) -> Void)?
+    /// For scripted debug runs: show the panel off-screen without taking keyboard focus,
+    /// so it neither interrupts nor picks up the user's typing.
+    var isHeadless = false
     var onShow: (() -> Void)?
     /// Resolves theme ids for live preview while browsing theme results.
     var themeLookup: ((String) -> Theme?)?
 
     private let panel = LauncherPanel()
     private var keyMonitor: Any?
+    private var scrollMonitor: Any?
+    /// Trackpad scrolling not yet amounting to a whole row, in points.
+    private var pendingScroll: CGFloat = 0
 
     init(model: LauncherModel) {
         self.model = model
@@ -45,9 +51,15 @@ final class LauncherController: NSObject, NSWindowDelegate {
     func show() {
         onShow?()
         placeOnActiveScreen()
-        panel.makeKeyAndOrderFront(nil)
+        if isHeadless {
+            panel.setFrameOrigin(NSPoint(x: -20_000, y: -20_000))
+            panel.orderFrontRegardless()
+        } else {
+            panel.makeKeyAndOrderFront(nil)
+        }
         model.requestFocus()
         installKeyMonitor()
+        installScrollMonitor()
     }
 
     func hide() {
@@ -154,6 +166,32 @@ final class LauncherController: NSObject, NSWindowDelegate {
     private func removeKeyMonitor() {
         if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
         keyMonitor = nil
+        if let scrollMonitor { NSEvent.removeMonitor(scrollMonitor) }
+        scrollMonitor = nil
+    }
+
+    /// The list isn't a scroll view, so turn wheel and trackpad scrolling into whole rows.
+    private func installScrollMonitor() {
+        guard scrollMonitor == nil else { return }
+        pendingScroll = 0
+        scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+            let handled = MainActor.assumeIsolated { self?.handleScroll(event) ?? false }
+            return handled ? nil : event
+        }
+    }
+
+    private func handleScroll(_ event: NSEvent) -> Bool {
+        guard event.window === panel else { return false }
+        if event.phase == .began { pendingScroll = 0 }
+        // Positive deltas reveal earlier rows, like a scroll view.
+        pendingScroll -= event.hasPreciseScrollingDeltas
+            ? event.scrollingDeltaY : event.scrollingDeltaY * LauncherLayout.rowHeight
+        let rows = Int(pendingScroll / LauncherLayout.rowHeight)
+        if rows != 0 {
+            pendingScroll -= CGFloat(rows) * LauncherLayout.rowHeight
+            model.scroll(byRows: rows)
+        }
+        return true
     }
 
     /// Returns true if the event was consumed.
@@ -194,7 +232,7 @@ final class LauncherController: NSObject, NSWindowDelegate {
 
         if flags.contains(.command) {
             if let digit = Int(key), (1...9).contains(digit) {
-                activate(index: digit - 1, alternate: false)
+                activate(index: model.window.first + digit - 1, alternate: false)
                 return true
             }
             // No main menu means no Edit menu, so route the standard editing shortcuts by hand.

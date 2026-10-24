@@ -19,12 +19,15 @@ enum LauncherLayout {
 final class LauncherModel {
     private(set) var query = ""
     private(set) var results: [SearchResult] = []
-    private(set) var selection = 0
+    /// Selection and the rows on screen.
+    private(set) var window: ResultWindow
     /// The committed theme.
     var theme: Theme
     /// Shown instead of `theme` while a theme result is selected.
     var previewTheme: Theme?
-    var maxVisibleResults: Int
+    var maxVisibleResults: Int {
+        didSet { window.resize(maxVisibleResults) }
+    }
     /// Incremented to ask the search field to take keyboard focus.
     private(set) var focusRequest = 0
 
@@ -37,9 +40,12 @@ final class LauncherModel {
         self.engine = engine
         self.theme = theme
         self.maxVisibleResults = maxVisibleResults
+        window = ResultWindow(size: maxVisibleResults)
     }
 
     var activeTheme: Theme { previewTheme ?? theme }
+
+    var selection: Int { window.selection }
 
     var selectedResult: SearchResult? {
         results.indices.contains(selection) ? results[selection] : nil
@@ -56,8 +62,13 @@ final class LauncherModel {
     }
 
     func moveSelection(by offset: Int) {
-        guard !results.isEmpty else { return }
-        selection = min(max(selection + offset, 0), results.count - 1)
+        window.moveSelection(by: offset)
+        onChange?()
+    }
+
+    /// Scrolls the list by whole rows, e.g. for the scroll wheel.
+    func scroll(byRows rows: Int) {
+        window.scroll(by: rows)
         onChange?()
     }
 
@@ -89,7 +100,7 @@ final class LauncherModel {
 
     private func show(_ results: [SearchResult], selecting id: String?) {
         self.results = results
-        selection = id.flatMap { id in results.firstIndex { $0.id == id } } ?? 0
+        window.reset(count: results.count, selection: id.flatMap { id in results.firstIndex { $0.id == id } } ?? 0)
         onChange?()
     }
 }
