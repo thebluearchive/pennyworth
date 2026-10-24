@@ -40,6 +40,13 @@ match by title, and also by URL, folder, tags and Firefox keyword (an exact Fire
 keyword ranks first). ↩ opens a bookmark in Firefox and ⌘↩ copies its URL. Bookmarks
 stay in sync while Firefox is running.
 
+**Calculator and units:** `= 24*7` (or just `24*7`) and `3 GB in MB` show the answer;
+↩ copies the number and ⌘↩ the whole line. ⇥ puts `= <answer>` back in the search field
+to keep calculating. Supports `+ - * / % ^ !`, parentheses, `sqrt`, `log`, `sin`, `round`,
+`min`/`max` and friends, `pi` and `e`, hex (`0xff`) and binary (`0b101`). Conversions
+cover data (`GB` = 10⁹ bytes, `GiB` = 2³⁰, `Mb` = megabits), length, mass, volume (US),
+temperature (`100 f to c`), time, speed, area, energy and angles.
+
 **Themes:** type `theme` and a space (or `theme` then ↩) to browse themes; the selected
 one is previewed live and ↩ applies it. `theme sto` filters. Themes can also be switched
 from the menu bar icon.

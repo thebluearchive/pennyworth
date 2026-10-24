@@ -230,7 +230,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func updateEngine() {
-        let providers: [(any SearchProvider)?] = [applications, bookmarks, themeProvider]
+        let providers: [(any SearchProvider)?] = [applications, bookmarks, themeProvider, CalculatorProvider()]
         launcher.model.engine = SearchEngine(providers: providers.compactMap { $0 }, history: history)
         launcher.model.refresh()
     }

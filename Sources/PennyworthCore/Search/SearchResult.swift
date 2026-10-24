@@ -16,11 +16,14 @@ public struct SearchResult: Identifiable, Sendable, Equatable {
     public var alternateAction: ResultAction?
     /// Query text to fill in on ⇥.
     public var autocomplete: String?
+    /// Whether picking this result should teach the ranking (false for one-off answers
+    /// like calculations).
+    public var isLearnable: Bool
 
     public init(
         id: String, title: String, subtitle: String = "", icon: ResultIcon = .none,
         score: Double, titleMatches: [Int] = [], action: ResultAction,
-        alternateAction: ResultAction? = nil, autocomplete: String? = nil
+        alternateAction: ResultAction? = nil, autocomplete: String? = nil, isLearnable: Bool = true
     ) {
         self.id = id
         self.title = title
@@ -31,6 +34,7 @@ public struct SearchResult: Identifiable, Sendable, Equatable {
         self.action = action
         self.alternateAction = alternateAction
         self.autocomplete = autocomplete
+        self.isLearnable = isLearnable
     }
 }
 

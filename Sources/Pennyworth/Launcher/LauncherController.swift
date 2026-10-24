@@ -256,7 +256,7 @@ final class LauncherController: NSObject, NSWindowDelegate {
         let result = model.results[index]
         let action = alternate ? result.alternateAction ?? result.action : result.action
         // Completing a keyword isn't a choice worth learning.
-        if case .autocomplete = action {} else {
+        if case .autocomplete = action {} else if result.isLearnable {
             onPick?(model.query, result)
         }
         perform(action)

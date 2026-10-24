@@ -49,7 +49,7 @@ enum PennyworthApp {
         applications.reload()
         print("Indexed \(applications.applications.count) apps in \(Int(Date().timeIntervalSince(start) * 1000)) ms")
 
-        var providers: [any SearchProvider] = [applications]
+        var providers: [any SearchProvider] = [applications, CalculatorProvider()]
         if config.firefoxBookmarks {
             let bookmarks = FirefoxBookmarkProvider(keyword: config.bookmarksKeywordIfSet)
             bookmarks.reloadIfChanged()
