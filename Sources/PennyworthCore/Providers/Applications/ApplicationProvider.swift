@@ -21,12 +21,18 @@ public final class ApplicationProvider: SearchProvider {
     }
 
     /// Rescans the filesystem. Safe to call from any thread.
-    public func reload() {
-        let scanned = scanner.scan().map { app in
+    /// Returns whether the set of applications changed.
+    @discardableResult
+    public func reload() -> Bool {
+        let scanned = scanner.scan()
+        let previous = applications
+        guard scanned != previous else { return false }
+        let fresh = scanned.map { app in
             Entry(application: app,
                   candidates: ([app.name] + app.alternateNames).map(MatchCandidate.init))
         }
-        entries.withLock { $0 = scanned }
+        entries.withLock { $0 = fresh }
+        return true
     }
 
     public func search(_ query: SearchQuery) async -> [SearchResult] {

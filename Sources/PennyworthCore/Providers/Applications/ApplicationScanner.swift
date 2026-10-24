@@ -69,11 +69,11 @@ public struct ApplicationScanner: Sendable {
     private func collect(in folder: URL, depth: Int, into found: inout [URL]) {
         guard depth > 0,
               let entries = try? FileManager.default.contentsOfDirectory(
-                at: folder, includingPropertiesForKeys: [.isDirectoryKey],
-                options: [.skipsHiddenFiles])
+                at: folder, includingPropertiesForKeys: [.isDirectoryKey])
         else { return }
 
-        for entry in entries {
+        // Only skip dot-files: the /Applications/Safari.app symlink has the hidden flag.
+        for entry in entries where !entry.lastPathComponent.hasPrefix(".") {
             if entry.pathExtension == "app" {
                 found.append(entry)
             } else if depth > 1, Self.isDirectory(entry) {

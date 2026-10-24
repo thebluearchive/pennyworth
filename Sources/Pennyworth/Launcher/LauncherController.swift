@@ -1,0 +1,202 @@
+import AppKit
+import Carbon.HIToolbox
+import OSLog
+import PennyworthCore
+import SwiftUI
+
+private let log = Logger(subsystem: "dev.pennyworth", category: "launcher")
+
+/// Owns the launcher panel: showing, sizing, keyboard handling and running actions.
+@MainActor
+final class LauncherController: NSObject, NSWindowDelegate {
+    let model: LauncherModel
+    var onCommand: ((LauncherCommand) -> Void)?
+    var onShow: (() -> Void)?
+
+    private let panel = LauncherPanel()
+    private var keyMonitor: Any?
+
+    init(model: LauncherModel) {
+        self.model = model
+        super.init()
+
+        let content = NSHostingView(rootView: LauncherView(model: model) { [weak self] index in
+            self?.activate(index: index, alternate: false)
+        })
+        // Size is driven by `updateSize()`, not by SwiftUI.
+        content.sizingOptions = []
+        panel.contentView = content
+        panel.delegate = self
+        model.onResultsChanged = { [weak self] in self?.updateSize() }
+        applyTheme()
+    }
+
+    var isVisible: Bool { panel.isVisible }
+
+    func toggle() {
+        isVisible ? hide() : show()
+    }
+
+    func show() {
+        onShow?()
+        placeOnActiveScreen()
+        panel.makeKeyAndOrderFront(nil)
+        model.requestFocus()
+        installKeyMonitor()
+    }
+
+    func hide() {
+        guard isVisible else { return }
+        panel.orderOut(nil)
+        removeKeyMonitor()
+        model.reset()
+    }
+
+    func applyTheme() {
+        panel.appearance = NSAppearance(named: model.theme.appearance == .dark ? .darkAqua : .aqua)
+        invalidateShadowSoon()
+    }
+
+    func windowDidResignKey(_ notification: Notification) {
+        hide()
+    }
+
+    /// Renders the panel's content to a PNG, for previews and debugging.
+    func writeSnapshot(to url: URL) throws {
+        guard let view = panel.contentView,
+              let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        view.cacheDisplay(in: view.bounds, to: bitmap)
+        guard let png = bitmap.representation(using: .png, properties: [:]) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        try png.write(to: url)
+    }
+
+    // MARK: Layout
+
+    private var height: CGFloat {
+        LauncherLayout.height(resultCount: model.results.count, maxVisible: model.maxVisibleResults)
+    }
+
+    private func placeOnActiveScreen() {
+        let mouse = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
+        guard let visible = screen?.visibleFrame else { return }
+        let top = visible.maxY - visible.height * 0.2
+        panel.setFrame(NSRect(
+            x: visible.midX - LauncherLayout.width / 2, y: top - height,
+            width: LauncherLayout.width, height: height), display: true)
+        invalidateShadowSoon()
+    }
+
+    private func updateSize() {
+        var frame = panel.frame
+        guard frame.height != height else { return }
+        let top = frame.maxY
+        frame.size.height = height
+        frame.origin.y = top - height
+        panel.setFrame(frame, display: true)
+        invalidateShadowSoon()
+    }
+
+    /// The shadow follows the content's alpha, so recompute it once SwiftUI has redrawn.
+    private func invalidateShadowSoon() {
+        Task { @MainActor [panel] in panel.invalidateShadow() }
+    }
+
+    // MARK: Keyboard
+
+    private func installKeyMonitor() {
+        guard keyMonitor == nil else { return }
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            let handled = MainActor.assumeIsolated { self?.handleKeyDown(event) ?? false }
+            return handled ? nil : event
+        }
+    }
+
+    private func removeKeyMonitor() {
+        if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
+        keyMonitor = nil
+    }
+
+    /// Returns true if the event was consumed.
+    private func handleKeyDown(_ event: NSEvent) -> Bool {
+        guard event.window === panel else { return false }
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let key = event.charactersIgnoringModifiers?.lowercased() ?? ""
+
+        switch Int(event.keyCode) {
+        case kVK_DownArrow:
+            model.moveSelection(by: 1)
+            return true
+        case kVK_UpArrow:
+            model.moveSelection(by: -1)
+            return true
+        case kVK_Return, kVK_ANSI_KeypadEnter:
+            activate(index: model.selection, alternate: flags.contains(.command))
+            return true
+        case kVK_Escape:
+            hide()
+            return true
+        default:
+            break
+        }
+
+        if flags == .control {
+            switch key {
+            case "n", "j": model.moveSelection(by: 1); return true
+            case "p", "k": model.moveSelection(by: -1); return true
+            default: break
+            }
+        }
+
+        if flags.contains(.command) {
+            if let digit = Int(key), (1...9).contains(digit) {
+                activate(index: digit - 1, alternate: false)
+                return true
+            }
+            // No main menu means no Edit menu, so route the standard editing shortcuts by hand.
+            let editing: [String: String] = [
+                "a": "selectAll:", "c": "copy:", "v": "paste:", "x": "cut:",
+                "z": flags.contains(.shift) ? "redo:" : "undo:",
+            ]
+            if let selector = editing[key] {
+                return NSApp.sendAction(Selector(selector), to: nil, from: self)
+            }
+        }
+        return false
+    }
+
+    // MARK: Actions
+
+    private func activate(index: Int, alternate: Bool) {
+        guard model.results.indices.contains(index) else { return }
+        let result = model.results[index]
+        perform(alternate ? result.alternateAction ?? result.action : result.action)
+    }
+
+    private func perform(_ action: ResultAction) {
+        switch action {
+        case .open(let url):
+            hide()
+            if url.pathExtension == "app" {
+                NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) { _, error in
+                    if let error { log.error("Failed to open \(url.path): \(error.localizedDescription)") }
+                }
+            } else {
+                NSWorkspace.shared.open(url)
+            }
+        case .revealInFinder(let url):
+            hide()
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+        case .copyToClipboard(let text):
+            hide()
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+        case .command(let command):
+            onCommand?(command)
+        }
+    }
+}

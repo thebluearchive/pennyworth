@@ -83,5 +83,10 @@ public struct ConfigError: Error, CustomStringConvertible {
     public let file: URL
     public let reason: String
 
+    public init(file: URL, reason: String) {
+        self.file = file
+        self.reason = reason
+    }
+
     public var description: String { "\(file.lastPathComponent): \(reason)" }
 }

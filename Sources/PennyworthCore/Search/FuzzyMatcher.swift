@@ -51,6 +51,9 @@ public enum FuzzyMatcher {
         static let dot = 0.6
         /// Returned for a full-length match; outranks any partial match.
         static let exact = 100.0
+        /// Matches below this, per query character, are scattered noise such as
+        /// "safari" in "DisplayLink Software Uninstaller".
+        static let minimumPerCharacter = 0.35
     }
 
     public static func match(_ query: FuzzyQuery, in candidate: MatchCandidate) -> FuzzyMatch? {
@@ -91,6 +94,9 @@ public enum FuzzyMatcher {
             }
         }
 
+        let score = M[n * m - 1]
+        guard score >= Score.minimumPerCharacter * Double(n) else { return nil }
+
         // Walk back through the matrices to recover which characters matched.
         var positions = [Int](repeating: 0, count: n)
         var matchRequired = false
@@ -109,7 +115,7 @@ public enum FuzzyMatcher {
             }
         }
 
-        return FuzzyMatch(score: M[n * m - 1], positions: positions)
+        return FuzzyMatch(score: score, positions: positions)
     }
 
     private static func isSubsequence(_ needle: [UInt32], of haystack: [UInt32]) -> Bool {

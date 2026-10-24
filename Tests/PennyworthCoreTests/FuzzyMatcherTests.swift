@@ -12,6 +12,15 @@ import Testing
         #expect(match("", "Safari") == nil)
     }
 
+    @Test func rejectsScatteredMatches() {
+        #expect(match("safari", "DisplayLink Software Uninstaller") == nil)
+        #expect(match("note", "Cisco Secure Client - Socket Filter") == nil)
+        // A single character only matches at a word start.
+        #expect(match("s", "Messages") == nil)
+        #expect(match("s", "Screen Sharing") != nil)
+        #expect(match("act", "Contacts") != nil)
+    }
+
     @Test func isCaseAndDiacriticInsensitive() {
         #expect(match("SAF", "safari") != nil)
         #expect(match("cafe", "Café Menu") != nil)
@@ -33,8 +42,9 @@ import Testing
     @Test func matchesAcronyms() throws {
         let acronym = try #require(match("vsc", "Visual Studio Code"))
         #expect(acronym.positions == [0, 7, 14])
-        let buried = try #require(match("vsc", "Devices Console"))
-        #expect(acronym.score > buried.score)
+        let partial = try #require(match("vsc", "VS Code"))
+        #expect(partial.positions == [0, 1, 3])
+        #expect(match("vsc", "Devices Console") == nil)
     }
 
     @Test func prefersShorterCandidates() throws {

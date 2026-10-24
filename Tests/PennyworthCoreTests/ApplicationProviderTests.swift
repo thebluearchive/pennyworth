@@ -67,6 +67,18 @@ final class FakeApplications {
         #expect(apps.first?.url.path.hasSuffix("Links/Browser.app") == true)
     }
 
+    @Test func includesBundlesFlaggedHiddenButNotDotFiles() throws {
+        let fake = try FakeApplications()
+        var flagged = try fake.app("Flagged.app")
+        var values = URLResourceValues()
+        values.isHidden = true
+        try flagged.setResourceValues(values)
+        try fake.app(".Dotted.app")
+
+        let names = ApplicationScanner(locations: [.init(fake.root, depth: 1)]).scan().map(\.name)
+        #expect(names == ["Flagged"])
+    }
+
     @Test func acceptsABundleAsALocation() throws {
         let fake = try FakeApplications()
         let finder = try fake.app("Finder.app")
