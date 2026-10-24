@@ -32,8 +32,10 @@ public final class ThemeProvider: SearchProvider {
         let filter = FuzzyQuery(String(query.text.dropFirst(Self.keyword.count))
             .trimmingCharacters(in: .whitespaces))
         return state.themes.enumerated().compactMap { index, theme in
-            // Rank above everything else; unfiltered, keep library order.
-            var score = 1000 - Double(index) * 0.001
+            // Rank above everything else. Unfiltered, the current theme comes first (so it's
+            // selected and previewing doesn't change anything) and the rest keep library order.
+            let isCurrent = theme.id == state.currentID
+            var score = isCurrent ? 1001 : 1000 - Double(index) * 0.001
             var matches: [Int] = []
             if !filter.isEmpty {
                 guard let match = FuzzyMatcher.match(filter, in: MatchCandidate(theme.name)) else {
@@ -45,7 +47,7 @@ public final class ThemeProvider: SearchProvider {
             return SearchResult(
                 id: "theme:\(theme.id)",
                 title: theme.name,
-                subtitle: Self.subtitle(for: theme, isCurrent: theme.id == state.currentID),
+                subtitle: Self.subtitle(for: theme, isCurrent: isCurrent),
                 icon: .palette(theme.colors.swatches),
                 score: score,
                 titleMatches: matches,

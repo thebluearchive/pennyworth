@@ -11,7 +11,6 @@ private let log = Logger(subsystem: "dev.pennyworth", category: "launcher")
 final class LauncherController: NSObject, NSWindowDelegate {
     let model: LauncherModel
     var onCommand: ((LauncherCommand) -> Void)?
-    var onShow: (() -> Void)?
     /// Resolves theme ids for live preview while browsing theme results.
     var themeLookup: ((String) -> Theme?)?
 
@@ -43,7 +42,6 @@ final class LauncherController: NSObject, NSWindowDelegate {
     }
 
     func show() {
-        onShow?()
         placeOnActiveScreen()
         panel.makeKeyAndOrderFront(nil)
         model.requestFocus()

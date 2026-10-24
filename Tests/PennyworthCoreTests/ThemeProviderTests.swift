@@ -21,6 +21,13 @@ import Testing
         #expect(results[1].action == .command(.setTheme(id: "tokyo-night-storm")))
     }
 
+    @Test func currentThemeIsListedFirst() async {
+        provider.update(themes: Theme.builtIn, currentID: "nord")
+        let titles = await search("theme").map(\.title)
+        #expect(titles.first == "Nord")
+        #expect(Array(titles.dropFirst()) == Theme.builtIn.map(\.name).filter { $0 != "Nord" })
+    }
+
     @Test func textAfterTheKeywordFilters() async {
         let results = await search("Theme  sto")
         #expect(results.map(\.title) == ["Tokyo Night Storm"])

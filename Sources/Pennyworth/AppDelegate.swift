@@ -23,6 +23,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let themeProvider = ThemeProvider()
     private var launcher: LauncherController!
     private var statusMenu: StatusMenu!
+    private var configWatcher: FileWatcher?
+    private var applicationsWatcher: FileWatcher?
 
     init(initialQuery: String?, themeOverride: String? = nil, snapshot: URL? = nil) {
         self.initialQuery = initialQuery
@@ -38,12 +40,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         launcher = LauncherController(model: model)
         launcher.themeLookup = { [weak self] id in self?.themes.theme(withID: id) }
         launcher.onCommand = { [weak self] command in self?.perform(command) }
-        // Cheap enough to do on every open, and keeps newly installed apps findable.
-        launcher.onShow = { [weak self] in self?.reindexApplications() }
         statusMenu = StatusMenu(app: self)
 
-        rebuildProviders()
+        rebuildApplications()
         registerHotKey()
+        watchConfig()
+
         if let themeOverride, let theme = themes.theme(withID: themeOverride) {
             launcher.model.theme = theme
             launcher.applyTheme()
@@ -94,13 +96,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func selectTheme(_ id: String) {
-        guard let theme = themes.theme(withID: id) else { return }
+        guard themes.theme(withID: id) != nil else { return }
         config.theme = id
-        launcher.model.theme = theme
-        launcher.applyTheme()
-        themeProvider.update(themes: themes.themes, currentID: id)
-        launcher.model.refresh()
+        applyThemes()
         saveConfig()
+    }
+
+    /// Re-reads config.json and the themes folder, applying only what changed.
+    /// `userInitiated` also retries a hotkey that another app was holding.
+    func reloadSettings(userInitiated: Bool = true) {
+        let previous = config
+        let previousThemes = themes.themes
+        loadSettings()
+
+        if config.theme != previous.theme || themes.themes != previousThemes {
+            applyThemes()
+        }
+        if config.maxVisibleResults != previous.maxVisibleResults {
+            launcher.model.maxVisibleResults = config.maxVisibleResults
+            launcher.model.refresh()
+        }
+        if config.applicationFolders != previous.applicationFolders {
+            rebuildApplications()
+        }
+        if config.hotkey != previous.hotkey || (userInitiated && hotKey == nil) {
+            registerHotKey()
+        }
+    }
+
+    func openConfigFolder() {
+        if !FileManager.default.fileExists(atPath: configStore.url.path) {
+            saveConfig()
+        }
+        NSWorkspace.shared.open(Paths.configDirectory)
     }
 
     private func perform(_ command: LauncherCommand) {
@@ -108,27 +136,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .setTheme(let id):
             selectTheme(id)
         }
-    }
-
-    func reloadSettings() {
-        loadSettings()
-        launcher.model.theme = currentTheme
-        launcher.model.maxVisibleResults = config.maxVisibleResults
-        launcher.applyTheme()
-        rebuildProviders()
-        registerHotKey()
-    }
-
-    func openConfigFolder() {
-        do {
-            try FileManager.default.createDirectory(at: Paths.themesDirectory, withIntermediateDirectories: true)
-            if !FileManager.default.fileExists(atPath: configStore.url.path) {
-                try configStore.save(config)
-            }
-        } catch {
-            log.error("Couldn't create config folder: \(error.localizedDescription)")
-        }
-        NSWorkspace.shared.open(Paths.configDirectory)
     }
 
     // MARK: Setup
@@ -143,7 +150,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 ?? ConfigError(file: configStore.url, reason: error.localizedDescription)
         }
         themes = ThemeLibrary.load(from: Paths.themesDirectory)
-        themeProvider.update(themes: themes.themes, currentID: currentTheme.id)
     }
 
     private func saveConfig() {
@@ -155,10 +161,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func rebuildProviders() {
-        applications = ApplicationProvider(scanner: ApplicationScanner(config: config))
+    private func applyThemes() {
+        themeProvider.update(themes: themes.themes, currentID: currentTheme.id)
+        launcher.model.theme = currentTheme
+        launcher.applyTheme()
+        launcher.model.refresh()
+    }
+
+    /// Edits to config.json or theme files apply as soon as they're saved.
+    private func watchConfig() {
+        try? FileManager.default.createDirectory(at: Paths.themesDirectory, withIntermediateDirectories: true)
+        configWatcher = FileWatcher(paths: [Paths.configDirectory.path], latency: 0.3) { [weak self] in
+            Task { @MainActor in self?.reloadSettings(userInitiated: false) }
+        }
+    }
+
+    private func rebuildApplications() {
+        let scanner = ApplicationScanner(config: config)
+        applications = ApplicationProvider(scanner: scanner)
+        themeProvider.update(themes: themes.themes, currentID: currentTheme.id)
         launcher.model.engine = SearchEngine(providers: [applications, themeProvider])
         reindexApplications()
+        applicationsWatcher = FileWatcher(paths: scanner.watchedPaths, latency: 2) { [weak self] in
+            Task { @MainActor in self?.reindexApplications() }
+        }
     }
 
     private func reindexApplications() {
@@ -187,8 +213,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     "\(combination) is already in use",
                     info: """
                         Another app (Alfred or Spotlight?) owns this shortcut. Free it there, or set \
-                        "hotkey" in config.json (e.g. "cmd+shift+space") and choose Reload Config \
-                        from the menu bar icon.
+                        "hotkey" in config.json (e.g. "cmd+shift+space"). Changes apply when you save.
                         """)
             }
         }
