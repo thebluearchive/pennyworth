@@ -11,6 +11,7 @@ private let log = Logger(subsystem: "dev.pennyworth", category: "launcher")
 final class LauncherController: NSObject, NSWindowDelegate {
     let model: LauncherModel
     var onCommand: ((LauncherCommand) -> Void)?
+    var onShow: (() -> Void)?
     /// Resolves theme ids for live preview while browsing theme results.
     var themeLookup: ((String) -> Theme?)?
 
@@ -42,6 +43,7 @@ final class LauncherController: NSObject, NSWindowDelegate {
     }
 
     func show() {
+        onShow?()
         placeOnActiveScreen()
         panel.makeKeyAndOrderFront(nil)
         model.requestFocus()
@@ -206,6 +208,11 @@ final class LauncherController: NSObject, NSWindowDelegate {
                 }
             } else {
                 NSWorkspace.shared.open(url)
+            }
+        case .openWith(let url, let application):
+            hide()
+            NSWorkspace.shared.open([url], withApplicationAt: application, configuration: NSWorkspace.OpenConfiguration()) { _, error in
+                if let error { log.error("Failed to open \(url) in \(application.path): \(error.localizedDescription)") }
             }
         case .revealInFinder(let url):
             hide()

@@ -22,10 +22,14 @@ public struct MatchCandidate: Sendable, Hashable {
 public struct FuzzyQuery: Sendable, Hashable {
     public let text: String
     let keys: [UInt32]
+    /// Whitespace-separated words, when there is more than one.
+    let words: [[UInt32]]
 
     public init(_ text: String) {
         self.text = text
         keys = text.map(FuzzyMatcher.fold)
+        let words = text.split(whereSeparator: \.isWhitespace)
+        self.words = words.count > 1 ? words.map { $0.map(FuzzyMatcher.fold) } : []
     }
 
     public var isEmpty: Bool { keys.isEmpty }
@@ -40,6 +44,10 @@ public struct FuzzyMatch: Sendable, Equatable {
 /// Case- and diacritic-insensitive subsequence matcher, scored like fzy:
 /// matches at word starts and consecutive runs score high, gaps cost a little.
 public enum FuzzyMatcher {
+    /// Matches below this, per query character, are scattered noise such as
+    /// "safari" in "DisplayLink Software Uninstaller".
+    public static let defaultMinimumScorePerCharacter = 0.35
+
     enum Score {
         static let gapLeading = -0.005
         static let gapTrailing = -0.005
@@ -51,13 +59,38 @@ public enum FuzzyMatcher {
         static let dot = 0.6
         /// Returned for a full-length match; outranks any partial match.
         static let exact = 100.0
-        /// Matches below this, per query character, are scattered noise such as
-        /// "safari" in "DisplayLink Software Uninstaller".
-        static let minimumPerCharacter = 0.35
+        /// Applied when a multi-word query only matches with its words reordered.
+        static let reordered = 0.9
     }
 
-    public static func match(_ query: FuzzyQuery, in candidate: MatchCandidate) -> FuzzyMatch? {
-        let needle = query.keys
+    /// Matches the whole query in order or, failing that, every word of it in any order
+    /// ("wiki retired" finds "Retired Segments - Wiki").
+    ///
+    /// - Parameter minimumScorePerCharacter: Raise for long candidates such as web page
+    ///   titles, whose many word boundaries let scattered letters score well.
+    public static func match(
+        _ query: FuzzyQuery, in candidate: MatchCandidate,
+        minimumScorePerCharacter: Double = defaultMinimumScorePerCharacter
+    ) -> FuzzyMatch? {
+        if let match = match(query.keys, in: candidate, minimum: minimumScorePerCharacter) {
+            return match
+        }
+        guard !query.words.isEmpty else { return nil }
+        var score = 0.0
+        var positions = Set<Int>()
+        for word in query.words {
+            guard let match = match(word, in: candidate, minimum: minimumScorePerCharacter) else {
+                return nil
+            }
+            score += match.score
+            positions.formUnion(match.positions)
+        }
+        return FuzzyMatch(score: score * Score.reordered, positions: positions.sorted())
+    }
+
+    private static func match(
+        _ needle: [UInt32], in candidate: MatchCandidate, minimum: Double
+    ) -> FuzzyMatch? {
         let haystack = candidate.keys
         let n = needle.count
         let m = haystack.count
@@ -95,7 +128,7 @@ public enum FuzzyMatcher {
         }
 
         let score = M[n * m - 1]
-        guard score >= Score.minimumPerCharacter * Double(n) else { return nil }
+        guard score >= minimum * Double(n) else { return nil }
 
         // Walk back through the matrices to recover which characters matched.
         var positions = [Int](repeating: 0, count: n)

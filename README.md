@@ -3,7 +3,7 @@
 A keyboard launcher for macOS in the spirit of Alfred, built to be bent to your
 own workflow. Native Swift (AppKit + SwiftUI), no dependencies.
 
-Currently it finds and opens applications, and is themeable — Tokyo Night by default.
+Currently it finds applications and Firefox bookmarks, and is themeable — Tokyo Night by default.
 
 ## Build and run
 
@@ -30,11 +30,17 @@ To start it at login, add it under System Settings → General → Login Items.
 | ⇥ | Autocomplete the selected result |
 | ⎋ | Close |
 
+Firefox bookmarks are searched by title, and also by URL, folder, tags and keyword
+(an exact Firefox keyword ranks first). Multi-word queries match in any order.
+↩ opens a bookmark in Firefox and ⌘↩ copies its URL. Bookmarks stay in sync while
+Firefox is running.
+
 Type `theme` to browse themes; the selected one is previewed live and ↩ applies it.
 `theme sto` filters. Themes can also be switched from the menu bar icon.
 
-> **Alfred users:** Alfred also defaults to ⌥Space. If it's running, Pennyworth
-> will say the shortcut is taken — change one of them.
+> **Alfred users:** Alfred also defaults to ⌥Space. Alfred doesn't claim its hotkey
+> exclusively, so Pennyworth can't detect the clash and both would open — give them
+> different shortcuts.
 
 ## Configuration
 
@@ -46,7 +52,8 @@ optional, and changes apply as soon as the file is saved:
   "theme": "tokyo-night",
   "hotkey": "option+space",
   "maxVisibleResults": 8,
-  "applicationFolders": ["~/Developer/Apps"]
+  "applicationFolders": ["~/Developer/Apps"],
+  "firefoxBookmarks": true
 }
 ```
 
@@ -54,6 +61,8 @@ optional, and changes apply as soon as the file is saved:
   (`a`–`z`, `0`–`9`, `space`, `return`, `tab`, `f1`–`f20`, punctuation).
 - **applicationFolders** — searched in addition to `/Applications`, `/System/Applications`,
   `~/Applications` and the system CoreServices apps.
+- **firefoxBookmarks** — set to `false` to leave bookmarks out of results. All Firefox
+  profiles are read, default profile first.
 
 Problems with the config or theme files are listed in the menu bar menu.
 

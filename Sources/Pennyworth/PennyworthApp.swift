@@ -44,7 +44,14 @@ enum PennyworthApp {
         applications.reload()
         print("Indexed \(applications.applications.count) apps in \(Int(Date().timeIntervalSince(start) * 1000)) ms")
 
-        let engine = SearchEngine(providers: [applications])
+        var providers: [any SearchProvider] = [applications]
+        if config.firefoxBookmarks {
+            let bookmarks = FirefoxBookmarkProvider()
+            bookmarks.reloadIfChanged()
+            print("Read \(bookmarks.bookmarks.count) Firefox bookmarks" + (bookmarks.problem.map { " (\($0))" } ?? ""))
+            providers.append(bookmarks)
+        }
+        let engine = SearchEngine(providers: providers)
         let done = DispatchSemaphore(value: 0)
         Task.detached {
             for result in await engine.search(query, limit: 15) {

@@ -46,6 +46,8 @@ public enum ResultIcon: Sendable, Hashable {
 
 public enum ResultAction: Sendable, Equatable {
     case open(URL)
+    /// Open a URL or file in a specific app, e.g. a bookmark in the browser it came from.
+    case openWith(URL, application: URL)
     case revealInFinder(URL)
     case copyToClipboard(String)
     /// Replace the query, keeping the launcher open.

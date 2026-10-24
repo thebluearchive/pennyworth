@@ -21,6 +21,23 @@ import Testing
         #expect(match("act", "Contacts") != nil)
     }
 
+    @Test func matchesWordsInAnyOrder() throws {
+        let reordered = try #require(match("wiki retired", "3.05 Full Retired Segments - Wiki"))
+        #expect(reordered.positions == Array(10...16) + Array(29...32))
+        #expect(match("safari ext", "AEASafariExtension") != nil)
+        #expect(match("wiki zebra", "3.05 Full Retired Segments - Wiki") == nil)
+
+        let inOrder = try #require(match("full retired", "3.05 Full Retired Segments - Wiki"))
+        let swapped = try #require(match("retired full", "3.05 Full Retired Segments - Wiki"))
+        #expect(inOrder.score > swapped.score)
+    }
+
+    @Test func minimumScoreIsAdjustable() {
+        let title = #"MySQL :: InnoDB Data Locking - Part 2 "Locks""#
+        #expect(match("slack", title) != nil)
+        #expect(FuzzyMatcher.match(FuzzyQuery("slack"), in: MatchCandidate(title), minimumScorePerCharacter: 0.6) == nil)
+    }
+
     @Test func isCaseAndDiacriticInsensitive() {
         #expect(match("SAF", "safari") != nil)
         #expect(match("cafe", "Café Menu") != nil)

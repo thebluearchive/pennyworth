@@ -11,11 +11,13 @@ public struct Config: Sendable, Equatable, Codable {
     public var maxVisibleResults = 8
     /// Extra folders to search for applications, besides the standard ones.
     public var applicationFolders: [String] = []
+    /// Include Firefox bookmarks in results.
+    public var firefoxBookmarks = true
 
     public init() {}
 
     private enum CodingKeys: String, CodingKey {
-        case theme, hotkey, maxVisibleResults, applicationFolders
+        case theme, hotkey, maxVisibleResults, applicationFolders, firefoxBookmarks
     }
 
     public init(from decoder: Decoder) throws {
@@ -27,6 +29,8 @@ public struct Config: Sendable, Equatable, Codable {
             ?? defaults.maxVisibleResults
         applicationFolders = try container.decodeIfPresent([String].self, forKey: .applicationFolders)
             ?? defaults.applicationFolders
+        firefoxBookmarks = try container.decodeIfPresent(Bool.self, forKey: .firefoxBookmarks)
+            ?? defaults.firefoxBookmarks
     }
 }
 

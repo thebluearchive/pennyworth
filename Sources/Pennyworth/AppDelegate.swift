@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var hotKey: HotKey?
     private var applications = ApplicationProvider()
+    private var bookmarks: FirefoxBookmarkProvider?
     private let themeProvider = ThemeProvider()
     private var launcher: LauncherController!
     private var statusMenu: StatusMenu!
@@ -40,8 +41,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         launcher = LauncherController(model: model)
         launcher.themeLookup = { [weak self] id in self?.themes.theme(withID: id) }
         launcher.onCommand = { [weak self] command in self?.perform(command) }
+        // Bookmarks change while Firefox runs; checking is cheap when they haven't.
+        launcher.onShow = { [weak self] in self?.reloadBookmarks() }
         statusMenu = StatusMenu(app: self)
 
+        rebuildBookmarks()
         rebuildApplications()
         registerHotKey()
         watchConfig()
@@ -82,7 +86,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Everything the user should know is misconfigured, for the status menu.
     var problems: [String] {
-        var problems = [configError?.description, hotKeyError].compactMap { $0 }
+        var problems = [configError?.description, hotKeyError, bookmarks?.problem].compactMap { $0 }
         if themes.theme(withID: config.theme) == nil {
             problems.append("Unknown theme \"\(config.theme)\", using \(currentTheme.name)")
         }
@@ -115,6 +119,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if config.maxVisibleResults != previous.maxVisibleResults {
             launcher.model.maxVisibleResults = config.maxVisibleResults
             launcher.model.refresh()
+        }
+        if config.firefoxBookmarks != previous.firefoxBookmarks {
+            rebuildBookmarks()
+            updateEngine()
         }
         if config.applicationFolders != previous.applicationFolders {
             rebuildApplications()
@@ -176,11 +184,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func updateEngine() {
+        let providers: [(any SearchProvider)?] = [applications, bookmarks, themeProvider]
+        launcher.model.engine = SearchEngine(providers: providers.compactMap { $0 })
+        launcher.model.refresh()
+    }
+
+    private func rebuildBookmarks() {
+        guard config.firefoxBookmarks else {
+            bookmarks = nil
+            return
+        }
+        let firefox = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "org.mozilla.firefox")
+        bookmarks = FirefoxBookmarkProvider(icon: firefox.map { .file($0) } ?? .symbol("bookmark"), browser: firefox)
+        reloadBookmarks()
+    }
+
+    private func reloadBookmarks() {
+        guard let bookmarks else { return }
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard bookmarks.reloadIfChanged() else { return }
+            await self?.launcher.model.refresh()
+        }
+    }
+
     private func rebuildApplications() {
         let scanner = ApplicationScanner(config: config)
         applications = ApplicationProvider(scanner: scanner)
         themeProvider.update(themes: themes.themes, currentID: currentTheme.id)
-        launcher.model.engine = SearchEngine(providers: [applications, themeProvider])
+        updateEngine()
         reindexApplications()
         applicationsWatcher = FileWatcher(paths: scanner.watchedPaths, latency: 2) { [weak self] in
             Task { @MainActor in self?.reindexApplications() }
