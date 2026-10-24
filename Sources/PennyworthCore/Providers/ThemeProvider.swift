@@ -1,10 +1,11 @@
 import Foundation
 import os
 
-/// Lists themes for the `theme` keyword: `theme` shows all, `theme sto` filters.
-/// Typing a prefix such as `them` offers a "Change Theme" shortcut that completes the keyword.
+/// Lists themes for the `theme` keyword: `theme ` shows all, `theme sto` filters.
+/// Typing `them`, `theme` or "change theme" offers a hint that completes the keyword.
 public final class ThemeProvider: SearchProvider {
     public static let keyword = "theme"
+    public var keyword: String? { Self.keyword }
 
     private struct State: Sendable {
         var themes: [Theme] = []
@@ -21,27 +22,20 @@ public final class ThemeProvider: SearchProvider {
         state.withLock { $0 = State(themes: themes, currentID: currentID) }
     }
 
+    /// `query` is what follows the keyword.
     public func search(_ query: SearchQuery) async -> [SearchResult] {
         let state = state.withLock { $0 }
-        let lowered = query.text.lowercased()
-
-        guard lowered == Self.keyword || lowered.hasPrefix(Self.keyword + " ") else {
-            return hint(for: query, current: state.themes.first { $0.id == state.currentID })
-        }
-
-        let filter = FuzzyQuery(String(query.text.dropFirst(Self.keyword.count))
-            .trimmingCharacters(in: .whitespaces))
         return state.themes.enumerated().compactMap { index, theme in
-            // Rank above everything else. Unfiltered, the current theme comes first (so it's
-            // selected and previewing doesn't change anything) and the rest keep library order.
+            // Unfiltered, the current theme comes first (so it's selected and previewing
+            // doesn't change anything) and the rest keep library order.
             let isCurrent = theme.id == state.currentID
-            var score = isCurrent ? 1001 : 1000 - Double(index) * 0.001
+            var score = isCurrent ? 2 : 1 - Double(index) * 0.001
             var matches: [Int] = []
-            if !filter.isEmpty {
-                guard let match = FuzzyMatcher.match(filter, in: MatchCandidate(theme.name)) else {
+            if !query.fuzzy.isEmpty {
+                guard let match = FuzzyMatcher.match(query.fuzzy, in: MatchCandidate(theme.name)) else {
                     return nil
                 }
-                score = 1000 + match.score
+                score = match.score
                 matches = match.positions
             }
             return SearchResult(
@@ -56,7 +50,9 @@ public final class ThemeProvider: SearchProvider {
         }
     }
 
-    private func hint(for query: SearchQuery, current: Theme?) -> [SearchResult] {
+    public func suggestions(for query: SearchQuery) async -> [SearchResult] {
+        let state = state.withLock { $0 }
+        let current = state.themes.first { $0.id == state.currentID }
         let matches = [Self.keywordCandidate, Self.hint].compactMap {
             FuzzyMatcher.match(query.fuzzy, in: $0)
         }

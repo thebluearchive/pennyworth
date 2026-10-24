@@ -138,7 +138,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             launcher.model.maxVisibleResults = config.maxVisibleResults
             launcher.model.refresh()
         }
-        if config.firefoxBookmarks != previous.firefoxBookmarks {
+        if config.firefoxBookmarks != previous.firefoxBookmarks
+            || config.bookmarksKeyword != previous.bookmarksKeyword {
             rebuildBookmarks()
             updateEngine()
         }
@@ -214,7 +215,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         let firefox = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "org.mozilla.firefox")
-        bookmarks = FirefoxBookmarkProvider(icon: firefox.map { .file($0) } ?? .symbol("bookmark"), browser: firefox)
+        bookmarks = FirefoxBookmarkProvider(
+            icon: firefox.map { .file($0) } ?? .symbol("bookmark"), browser: firefox,
+            keyword: config.bookmarksKeywordIfSet)
         reloadBookmarks()
     }
 

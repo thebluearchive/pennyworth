@@ -2,6 +2,7 @@ import Foundation
 import os
 
 /// Searches Firefox bookmarks by title, and less strongly by URL, tags, keyword and folder.
+/// With a launcher `keyword` (e.g. `b vento`), bookmarks are only searched after it.
 public final class FirefoxBookmarkProvider: SearchProvider {
     /// Bookmarks rank a little below applications with an equally good match.
     static let weight = 0.9
@@ -26,6 +27,7 @@ public final class FirefoxBookmarkProvider: SearchProvider {
         var problem: String?
     }
 
+    public let keyword: String?
     private let directory: URL
     private let icon: ResultIcon
     private let browser: URL?
@@ -34,10 +36,13 @@ public final class FirefoxBookmarkProvider: SearchProvider {
     /// - Parameters:
     ///   - icon: Shown next to every bookmark, e.g. Firefox's app icon.
     ///   - browser: The app to open bookmarks in; `nil` uses the default browser.
+    ///   - keyword: Launcher keyword that must precede bookmark searches; `nil` mixes
+    ///     bookmarks into every search.
     public init(
         directory: URL = FirefoxBookmarks.defaultDirectory, icon: ResultIcon = .symbol("bookmark"),
-        browser: URL? = nil
+        browser: URL? = nil, keyword: String? = nil
     ) {
+        self.keyword = keyword
         self.directory = directory
         self.icon = icon
         self.browser = browser
@@ -95,9 +100,16 @@ public final class FirefoxBookmarkProvider: SearchProvider {
         }
     }
 
+    private static let hintTitle = "Search Firefox Bookmarks"
+    private static let hintCandidates = [MatchCandidate(hintTitle), MatchCandidate("bookmarks")]
+
+    /// With a keyword, `query` is what follows it.
     public func search(_ query: SearchQuery) async -> [SearchResult] {
-        guard !query.fuzzy.isEmpty else { return [] }
         let entries = state.withLock { $0.entries }
+        guard !query.fuzzy.isEmpty else {
+            // Just the keyword so far.
+            return [hint(subtitle: "\(entries.count) bookmarks · keep typing to search", score: 0)]
+        }
 
         return entries.compactMap { entry -> SearchResult? in
             func match(_ candidate: MatchCandidate) -> FuzzyMatch? {
@@ -136,6 +148,21 @@ public final class FirefoxBookmarkProvider: SearchProvider {
                 alternateAction: .copyToClipboard(bookmark.url.absoluteString),
                 autocomplete: bookmark.title)
         }
+    }
+
+    /// Offers the keyword to queries like "firefox" or "bookm", below real matches.
+    public func suggestions(for query: SearchQuery) async -> [SearchResult] {
+        guard let keyword, query.text.count >= 3,
+              let match = Self.hintCandidates.compactMap({ FuzzyMatcher.match(query.fuzzy, in: $0) })
+                .max(by: { $0.score < $1.score }) else { return [] }
+        return [hint(subtitle: "Type \u{201C}\(keyword) \u{201D} then your search · ↩ to start", score: match.score * 0.5)]
+    }
+
+    private func hint(subtitle: String, score: Double) -> SearchResult {
+        let completion = (keyword ?? "") + " "
+        return SearchResult(
+            id: "firefox:search", title: Self.hintTitle, subtitle: subtitle, icon: icon, score: score,
+            action: .autocomplete(completion), autocomplete: completion)
     }
 
     /// `https://www.example.com/path/` → `example.com/path`

@@ -51,7 +51,7 @@ enum PennyworthApp {
 
         var providers: [any SearchProvider] = [applications]
         if config.firefoxBookmarks {
-            let bookmarks = FirefoxBookmarkProvider()
+            let bookmarks = FirefoxBookmarkProvider(keyword: config.bookmarksKeywordIfSet)
             bookmarks.reloadIfChanged()
             print("Read \(bookmarks.bookmarks.count) Firefox bookmarks" + (bookmarks.problem.map { " (\($0))" } ?? ""))
             providers.append(bookmarks)

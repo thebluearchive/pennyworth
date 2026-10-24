@@ -13,11 +13,13 @@ public struct Config: Sendable, Equatable, Codable {
     public var applicationFolders: [String] = []
     /// Include Firefox bookmarks in results.
     public var firefoxBookmarks = true
+    /// Word to type before a bookmark search (`b vento`). Empty mixes bookmarks into every search.
+    public var bookmarksKeyword = "b"
 
     public init() {}
 
     private enum CodingKeys: String, CodingKey {
-        case theme, hotkey, maxVisibleResults, applicationFolders, firefoxBookmarks
+        case theme, hotkey, maxVisibleResults, applicationFolders, firefoxBookmarks, bookmarksKeyword
     }
 
     public init(from decoder: Decoder) throws {
@@ -31,6 +33,14 @@ public struct Config: Sendable, Equatable, Codable {
             ?? defaults.applicationFolders
         firefoxBookmarks = try container.decodeIfPresent(Bool.self, forKey: .firefoxBookmarks)
             ?? defaults.firefoxBookmarks
+        bookmarksKeyword = try container.decodeIfPresent(String.self, forKey: .bookmarksKeyword)
+            ?? defaults.bookmarksKeyword
+    }
+
+    /// `bookmarksKeyword` as a provider keyword: `nil` when bookmarks aren't gated.
+    public var bookmarksKeywordIfSet: String? {
+        let keyword = bookmarksKeyword.trimmingCharacters(in: .whitespaces)
+        return keyword.isEmpty ? nil : keyword
     }
 }
 

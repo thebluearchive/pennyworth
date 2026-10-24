@@ -30,13 +30,16 @@ To start it at login, add it under System Settings → General → Login Items.
 | ⇥ | Autocomplete the selected result |
 | ⎋ | Close |
 
-Firefox bookmarks are searched by title, and also by URL, folder, tags and keyword
-(an exact Firefox keyword ranks first). Multi-word queries match in any order.
-↩ opens a bookmark in Firefox and ⌘↩ copies its URL. Bookmarks stay in sync while
-Firefox is running.
+Multi-word queries match in any order.
 
-Type `theme` to browse themes; the selected one is previewed live and ↩ applies it.
-`theme sto` filters. Themes can also be switched from the menu bar icon.
+**Firefox bookmarks:** type `b` and a space, then your search (`b vento`). Bookmarks
+match by title, and also by URL, folder, tags and Firefox keyword (an exact Firefox
+keyword ranks first). ↩ opens a bookmark in Firefox and ⌘↩ copies its URL. Bookmarks
+stay in sync while Firefox is running.
+
+**Themes:** type `theme` and a space (or `theme` then ↩) to browse themes; the selected
+one is previewed live and ↩ applies it. `theme sto` filters. Themes can also be switched
+from the menu bar icon.
 
 > **Alfred users:** Alfred also defaults to ⌥Space. Alfred doesn't claim its hotkey
 > exclusively, so Pennyworth can't detect the clash and both would open — give them
@@ -53,7 +56,8 @@ optional, and changes apply as soon as the file is saved:
   "hotkey": "option+space",
   "maxVisibleResults": 8,
   "applicationFolders": ["~/Developer/Apps"],
-  "firefoxBookmarks": true
+  "firefoxBookmarks": true,
+  "bookmarksKeyword": "b"
 }
 ```
 
@@ -61,8 +65,10 @@ optional, and changes apply as soon as the file is saved:
   (`a`–`z`, `0`–`9`, `space`, `return`, `tab`, `f1`–`f20`, punctuation).
 - **applicationFolders** — searched in addition to `/Applications`, `/System/Applications`,
   `~/Applications` and the system CoreServices apps.
-- **firefoxBookmarks** — set to `false` to leave bookmarks out of results. All Firefox
+- **firefoxBookmarks** — set to `false` to turn bookmark search off. All Firefox
   profiles are read, default profile first.
+- **bookmarksKeyword** — what to type before a bookmark search. Set to `""` to mix
+  bookmarks into every search instead.
 
 Problems with the config or theme files are listed in the menu bar menu.
 
@@ -107,8 +113,9 @@ Sources/Pennyworth       The app: panel, hotkey, SwiftUI views, menu bar
 ```
 
 Results come from `SearchProvider`s, which the `SearchEngine` queries concurrently and
-ranks by score. To add a new kind of result, implement `SearchProvider` and register it
-in `AppDelegate.rebuildApplications()`.
+ranks by score. A provider with a `keyword` is searched only when the query starts with
+that word and a space, and then exclusively; otherwise it can offer `suggestions`. To add
+a new kind of result, implement `SearchProvider` and register it in `AppDelegate.updateEngine()`.
 
 Debug flags for the app binary (`dist/Pennyworth.app/Contents/MacOS/Pennyworth`):
 

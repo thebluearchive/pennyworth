@@ -238,6 +238,39 @@ final class FakeFirefox {
         #expect(provider.problem?.hasPrefix("Firefox bookmarks (abc.default-release):") == true)
     }
 
+    @Test func keywordGatesBookmarkSearches() async throws {
+        let bookmarks = FirefoxBookmarkProvider(directory: firefox.directory, browser: browser, keyword: "b")
+        bookmarks.reloadIfChanged()
+        let fake = try FakeApplications()
+        try fake.app("Hacker Tools.app")
+        let apps = ApplicationProvider(scanner: ApplicationScanner(locations: [.init(fake.root, depth: 1)]))
+        apps.reload()
+        let engine = SearchEngine(providers: [apps, bookmarks])
+
+        #expect(await engine.search("hacker").map(\.title) == ["Hacker Tools"])
+        #expect(await engine.search("b hacker").map(\.title) == ["Hacker News"])
+        #expect(await engine.search("B  hack").map(\.title) == ["Hacker News"])
+        // Just the keyword: a hint, not a list of everything.
+        let hint = try #require(await engine.search("b ").first)
+        #expect(hint.title == "Search Firefox Bookmarks")
+        #expect(hint.subtitle.hasPrefix("3 bookmarks"))
+        // Without the space, "b" is an ordinary query.
+        #expect(await engine.search("b").allSatisfy { $0.title != "Search Firefox Bookmarks" })
+    }
+
+    @Test func suggestsTheKeywordForRelatedQueries() async throws {
+        let bookmarks = FirefoxBookmarkProvider(directory: firefox.directory, keyword: "b")
+        bookmarks.reloadIfChanged()
+        let engine = SearchEngine(providers: [bookmarks])
+        for text in ["firefox", "bookm", "search fire"] {
+            let results = await engine.search(text)
+            #expect(results.map(\.title) == ["Search Firefox Bookmarks"], "\(text)")
+            #expect(results.first?.action == .autocomplete("b "), "\(text)")
+        }
+        #expect(await engine.search("fi").isEmpty)
+        #expect(await engine.search("hacker").isEmpty)
+    }
+
     @Test func displayURLDropsSchemeAndWWW() {
         #expect(FirefoxBookmarkProvider.displayURL(URL(string: "https://www.example.com/a/")!) == "example.com/a")
         #expect(FirefoxBookmarkProvider.displayURL(URL(string: "http://example.com")!) == "example.com")

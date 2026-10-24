@@ -11,11 +11,35 @@ public struct SearchQuery: Sendable {
         text = raw.trimmingCharacters(in: .whitespaces)
         fuzzy = FuzzyQuery(text)
     }
+
+    /// The rest of the query if it starts with `keyword` and a space (`b vento` → `vento`).
+    /// The space is required, so typing just `b` still searches normally.
+    public func removingKeyword(_ keyword: String) -> SearchQuery? {
+        let typed = raw.drop(while: \.isWhitespace)
+        let prefix = keyword + " "
+        guard typed.count >= prefix.count,
+              typed.prefix(prefix.count).lowercased() == prefix.lowercased() else { return nil }
+        return SearchQuery(String(typed.dropFirst(prefix.count)))
+    }
 }
 
 /// A source of results, e.g. installed applications.
 public protocol SearchProvider: Sendable {
+    /// When set, the provider is only searched for queries starting with this word, and
+    /// then exclusively: `search` receives the rest of the query and other providers are skipped.
+    var keyword: String? { get }
+
     func search(_ query: SearchQuery) async -> [SearchResult]
+
+    /// For keyword providers: results to mix into ordinary queries, such as a hint that
+    /// offers the keyword.
+    func suggestions(for query: SearchQuery) async -> [SearchResult]
+}
+
+extension SearchProvider {
+    public var keyword: String? { nil }
+
+    public func suggestions(for query: SearchQuery) async -> [SearchResult] { [] }
 }
 
 /// Fans a query out to every provider and merges the results by score.
@@ -30,9 +54,23 @@ public struct SearchEngine: Sendable {
         let query = SearchQuery(raw)
         guard !query.text.isEmpty else { return [] }
 
+        // A keyword claims the query for its provider alone.
+        let claimed = providers.compactMap { provider in
+            provider.keyword.flatMap(query.removingKeyword).map { (provider, $0) }
+        }
+
         let results = await withTaskGroup(of: [SearchResult].self) { group in
-            for provider in providers {
-                group.addTask { await provider.search(query) }
+            if claimed.isEmpty {
+                for provider in providers {
+                    group.addTask {
+                        provider.keyword == nil
+                            ? await provider.search(query) : await provider.suggestions(for: query)
+                    }
+                }
+            } else {
+                for (provider, rest) in claimed {
+                    group.addTask { await provider.search(rest) }
+                }
             }
             return await group.reduce(into: []) { $0 += $1 }
         }
