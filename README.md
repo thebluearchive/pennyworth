@@ -25,7 +25,7 @@ To start it at login, add it under System Settings → General → Login Items.
 | ⌥Space | Show / hide (configurable) |
 | ↑ ↓ or ⌃N ⌃P / ⌃J ⌃K | Move selection |
 | ↩ | Open |
-| ⌘↩ | Reveal in Finder |
+| ⌘↩ | Reveal app in Finder · copy bookmark URL |
 | ⌘1 – ⌘9 | Open the nth result |
 | ⇥ | Autocomplete the selected result |
 | ⎋ | Close |
