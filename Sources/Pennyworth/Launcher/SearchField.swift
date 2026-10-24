@@ -36,6 +36,7 @@ struct SearchField: NSViewRepresentable {
 
         if field.stringValue != text {
             field.stringValue = text
+            coordinator.moveCaretToEnd(of: field)
         }
         field.textColor = theme.colors.text.nsColor
         field.placeholderAttributedString = NSAttributedString(string: placeholder, attributes: [
@@ -50,6 +51,7 @@ struct SearchField: NSViewRepresentable {
             Task { @MainActor in
                 field.window?.makeFirstResponder(field)
                 coordinator.styleEditor(of: field)
+                coordinator.moveCaretToEnd(of: field)
             }
         }
     }
@@ -73,6 +75,10 @@ struct SearchField: NSViewRepresentable {
         func controlTextDidBeginEditing(_ notification: Notification) {
             guard let field = notification.object as? NSTextField else { return }
             styleEditor(of: field)
+        }
+
+        func moveCaretToEnd(of field: NSTextField) {
+            field.currentEditor()?.selectedRange = NSRange(location: field.stringValue.utf16.count, length: 0)
         }
 
         /// The caret and selection belong to the window's shared field editor.

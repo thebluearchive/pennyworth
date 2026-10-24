@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var hotKey: HotKey?
     private var applications = ApplicationProvider()
+    private let themeProvider = ThemeProvider()
     private var launcher: LauncherController!
     private var statusMenu: StatusMenu!
 
@@ -35,6 +36,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             engine: SearchEngine(providers: []), theme: currentTheme,
             maxVisibleResults: config.maxVisibleResults)
         launcher = LauncherController(model: model)
+        launcher.themeLookup = { [weak self] id in self?.themes.theme(withID: id) }
+        launcher.onCommand = { [weak self] command in self?.perform(command) }
         // Cheap enough to do on every open, and keeps newly installed apps findable.
         launcher.onShow = { [weak self] in self?.reindexApplications() }
         statusMenu = StatusMenu(app: self)
@@ -95,7 +98,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         config.theme = id
         launcher.model.theme = theme
         launcher.applyTheme()
+        themeProvider.update(themes: themes.themes, currentID: id)
+        launcher.model.refresh()
         saveConfig()
+    }
+
+    private func perform(_ command: LauncherCommand) {
+        switch command {
+        case .setTheme(let id):
+            selectTheme(id)
+        }
     }
 
     func reloadSettings() {
@@ -131,6 +143,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 ?? ConfigError(file: configStore.url, reason: error.localizedDescription)
         }
         themes = ThemeLibrary.load(from: Paths.themesDirectory)
+        themeProvider.update(themes: themes.themes, currentID: currentTheme.id)
     }
 
     private func saveConfig() {
@@ -144,7 +157,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func rebuildProviders() {
         applications = ApplicationProvider(scanner: ApplicationScanner(config: config))
-        launcher.model.engine = SearchEngine(providers: [applications])
+        launcher.model.engine = SearchEngine(providers: [applications, themeProvider])
         reindexApplications()
     }
 

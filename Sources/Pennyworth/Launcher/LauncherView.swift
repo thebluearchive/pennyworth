@@ -7,7 +7,7 @@ struct LauncherView: View {
     let onActivate: (Int) -> Void
 
     var body: some View {
-        let theme = model.theme
+        let theme = model.activeTheme
         let colors = theme.colors
         let shape = RoundedRectangle(cornerRadius: theme.cornerRadius, style: .continuous)
 
@@ -48,7 +48,7 @@ private struct ResultList: View {
                     ForEach(Array(model.results.enumerated()), id: \.element.id) { index, result in
                         ResultRow(
                             result: result, index: index,
-                            isSelected: index == model.selection, theme: model.theme)
+                            isSelected: index == model.selection, theme: model.activeTheme)
                             .id(index)
                             .contentShape(Rectangle())
                             .onTapGesture { onActivate(index) }
@@ -153,7 +153,28 @@ private struct ResultIconView: View {
             Image(systemName: name)
                 .font(.system(size: 20))
                 .foregroundStyle(tint)
+        case .palette(let colors):
+            PaletteIcon(colors: colors)
         }
+    }
+}
+
+/// A rounded tile in a theme's background color with a column of its accent colors.
+private struct PaletteIcon: View {
+    let colors: [RGBAColor]
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 7, style: .continuous)
+        ZStack {
+            shape.fill((colors.first ?? RGBAColor(red: 0, green: 0, blue: 0)).color)
+            HStack(spacing: 3) {
+                ForEach(Array(colors.dropFirst().enumerated()), id: \.offset) { _, color in
+                    Capsule().fill(color.color).frame(width: 4, height: 16)
+                }
+            }
+        }
+        .overlay(shape.strokeBorder(.white.opacity(0.12), lineWidth: 1))
+        .padding(1)
     }
 }
 

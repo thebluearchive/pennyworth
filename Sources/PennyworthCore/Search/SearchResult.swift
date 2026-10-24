@@ -14,11 +14,13 @@ public struct SearchResult: Identifiable, Sendable, Equatable {
     public var action: ResultAction
     /// Performed on ⌘↩, when present.
     public var alternateAction: ResultAction?
+    /// Query text to fill in on ⇥.
+    public var autocomplete: String?
 
     public init(
         id: String, title: String, subtitle: String = "", icon: ResultIcon = .none,
         score: Double, titleMatches: [Int] = [], action: ResultAction,
-        alternateAction: ResultAction? = nil
+        alternateAction: ResultAction? = nil, autocomplete: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -28,6 +30,7 @@ public struct SearchResult: Identifiable, Sendable, Equatable {
         self.titleMatches = titleMatches
         self.action = action
         self.alternateAction = alternateAction
+        self.autocomplete = autocomplete
     }
 }
 
@@ -37,14 +40,20 @@ public enum ResultIcon: Sendable, Hashable {
     case file(URL)
     /// An SF Symbol name.
     case symbol(String)
+    /// Color swatches previewing a theme; the first is the backdrop.
+    case palette([RGBAColor])
 }
 
 public enum ResultAction: Sendable, Equatable {
     case open(URL)
     case revealInFinder(URL)
     case copyToClipboard(String)
+    /// Replace the query, keeping the launcher open.
+    case autocomplete(String)
     case command(LauncherCommand)
 }
 
 /// Actions handled by the launcher itself rather than the system.
-public enum LauncherCommand: Sendable, Equatable {}
+public enum LauncherCommand: Sendable, Equatable {
+    case setTheme(id: String)
+}

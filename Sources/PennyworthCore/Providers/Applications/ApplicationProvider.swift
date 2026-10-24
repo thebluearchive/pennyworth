@@ -58,7 +58,8 @@ public final class ApplicationProvider: SearchProvider {
                 score: best.match.score,
                 titleMatches: best.isPrimary ? best.match.positions : [],
                 action: .open(app.url),
-                alternateAction: .revealInFinder(app.url))
+                alternateAction: .revealInFinder(app.url),
+                autocomplete: app.name)
         }
     }
 }

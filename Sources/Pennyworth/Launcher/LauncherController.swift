@@ -12,6 +12,8 @@ final class LauncherController: NSObject, NSWindowDelegate {
     let model: LauncherModel
     var onCommand: ((LauncherCommand) -> Void)?
     var onShow: (() -> Void)?
+    /// Resolves theme ids for live preview while browsing theme results.
+    var themeLookup: ((String) -> Theme?)?
 
     private let panel = LauncherPanel()
     private var keyMonitor: Any?
@@ -27,7 +29,10 @@ final class LauncherController: NSObject, NSWindowDelegate {
         content.sizingOptions = []
         panel.contentView = content
         panel.delegate = self
-        model.onResultsChanged = { [weak self] in self?.updateSize() }
+        model.onChange = { [weak self] in
+            self?.updateSize()
+            self?.updatePreview()
+        }
         applyTheme()
     }
 
@@ -53,8 +58,19 @@ final class LauncherController: NSObject, NSWindowDelegate {
     }
 
     func applyTheme() {
-        panel.appearance = NSAppearance(named: model.theme.appearance == .dark ? .darkAqua : .aqua)
+        panel.appearance = NSAppearance(named: model.activeTheme.appearance == .dark ? .darkAqua : .aqua)
         invalidateShadowSoon()
+    }
+
+    /// Previews the selected theme result; reverts when anything else is selected.
+    private func updatePreview() {
+        var preview: Theme?
+        if case .command(.setTheme(let id)) = model.selectedResult?.action {
+            preview = themeLookup?(id)
+        }
+        guard preview != model.previewTheme else { return }
+        model.previewTheme = preview
+        applyTheme()
     }
 
     func windowDidResignKey(_ notification: Notification) {
@@ -140,6 +156,11 @@ final class LauncherController: NSObject, NSWindowDelegate {
         case kVK_Escape:
             hide()
             return true
+        case kVK_Tab:
+            if let completion = model.selectedResult?.autocomplete {
+                model.setQuery(completion)
+            }
+            return true
         default:
             break
         }
@@ -195,6 +216,8 @@ final class LauncherController: NSObject, NSWindowDelegate {
             hide()
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)
+        case .autocomplete(let text):
+            model.setQuery(text)
         case .command(let command):
             onCommand?(command)
         }

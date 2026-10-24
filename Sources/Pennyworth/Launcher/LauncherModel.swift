@@ -20,14 +20,17 @@ final class LauncherModel {
     private(set) var query = ""
     private(set) var results: [SearchResult] = []
     private(set) var selection = 0
+    /// The committed theme.
     var theme: Theme
+    /// Shown instead of `theme` while a theme result is selected.
+    var previewTheme: Theme?
     var maxVisibleResults: Int
     /// Incremented to ask the search field to take keyboard focus.
     private(set) var focusRequest = 0
 
     @ObservationIgnored var engine: SearchEngine
-    /// Called after `results` changes, so the window can resize.
-    @ObservationIgnored var onResultsChanged: (() -> Void)?
+    /// Called after `results` or `selection` changes.
+    @ObservationIgnored var onChange: (() -> Void)?
     @ObservationIgnored private var searchTask: Task<Void, Never>?
 
     init(engine: SearchEngine, theme: Theme, maxVisibleResults: Int) {
@@ -36,33 +39,26 @@ final class LauncherModel {
         self.maxVisibleResults = maxVisibleResults
     }
 
+    var activeTheme: Theme { previewTheme ?? theme }
+
     var selectedResult: SearchResult? {
         results.indices.contains(selection) ? results[selection] : nil
     }
 
     func setQuery(_ query: String) {
-        self.query = query
-        searchTask?.cancel()
-        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else {
-            show([])
-            return
-        }
-        let engine = engine
-        searchTask = Task { [weak self] in
-            let results = await engine.search(query)
-            guard !Task.isCancelled else { return }
-            self?.show(results)
-        }
+        search(query, keepingSelection: false)
     }
 
-    /// Re-runs the current query, e.g. after the app index or themes change.
+    /// Re-runs the current query, e.g. after the app index or themes change,
+    /// keeping the same result selected if it's still there.
     func refresh() {
-        setQuery(query)
+        search(query, keepingSelection: true)
     }
 
     func moveSelection(by offset: Int) {
         guard !results.isEmpty else { return }
         selection = min(max(selection + offset, 0), results.count - 1)
+        onChange?()
     }
 
     func requestFocus() {
@@ -72,12 +68,28 @@ final class LauncherModel {
     func reset() {
         searchTask?.cancel()
         query = ""
-        show([])
+        show([], selecting: nil)
     }
 
-    private func show(_ results: [SearchResult]) {
+    private func search(_ query: String, keepingSelection: Bool) {
+        self.query = query
+        searchTask?.cancel()
+        let selectedID = keepingSelection ? selectedResult?.id : nil
+        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else {
+            show([], selecting: nil)
+            return
+        }
+        let engine = engine
+        searchTask = Task { [weak self] in
+            let results = await engine.search(query)
+            guard !Task.isCancelled else { return }
+            self?.show(results, selecting: selectedID)
+        }
+    }
+
+    private func show(_ results: [SearchResult], selecting id: String?) {
         self.results = results
-        selection = 0
-        onResultsChanged?()
+        selection = id.flatMap { id in results.firstIndex { $0.id == id } } ?? 0
+        onChange?()
     }
 }
