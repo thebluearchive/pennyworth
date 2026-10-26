@@ -15,7 +15,9 @@ final class LauncherController: NSObject, NSWindowDelegate {
     var onPick: ((String, SearchResult) -> Void)?
     /// For scripted debug runs: show the panel off-screen without taking keyboard focus,
     /// so it neither interrupts nor picks up the user's typing.
-    var isHeadless = false
+    var isHeadless = false {
+        didSet { panel.refusesKeyFocus = isHeadless }
+    }
     var onShow: (() -> Void)?
     /// Resolves theme ids for live preview while browsing theme results.
     var themeLookup: ((String) -> Theme?)?

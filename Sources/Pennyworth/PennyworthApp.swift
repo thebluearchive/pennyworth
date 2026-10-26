@@ -15,8 +15,9 @@ enum PennyworthApp {
 
         // `--show [query]` opens the launcher immediately, optionally pre-filled.
         var initialQuery: String?
-        if let index = arguments.firstIndex(of: "--show") {
-            initialQuery = arguments.dropFirst(index + 1).first { !$0.hasPrefix("--") } ?? ""
+        // Only the argument right after `--show` is its query, so a later flag's value isn't.
+        if arguments.contains("--show") {
+            initialQuery = value(after: "--show", in: arguments).flatMap { $0.hasPrefix("--") ? nil : $0 } ?? ""
         }
 
         // `--snapshot <file.png>` renders the launcher to an image and quits (needs no

@@ -20,6 +20,9 @@ final class LauncherPanel: NSPanel {
         animationBehavior = .none
     }
 
-    override var canBecomeKey: Bool { true }
+    /// Set for headless debug runs, so the panel can't take keystrokes meant for other apps.
+    var refusesKeyFocus = false
+
+    override var canBecomeKey: Bool { !refusesKeyFocus }
     override var canBecomeMain: Bool { false }
 }
