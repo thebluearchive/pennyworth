@@ -54,6 +54,8 @@ public enum ResultAction: Sendable, Equatable {
     case openWith(URL, application: URL)
     case revealInFinder(URL)
     case copyToClipboard(String)
+    /// Run a shell command in a new window of a terminal app.
+    case runInTerminal(String, terminal: URL)
     /// Replace the query, keeping the launcher open.
     case autocomplete(String)
     case command(LauncherCommand)

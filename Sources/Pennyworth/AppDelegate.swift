@@ -1,6 +1,7 @@
 import AppKit
 import OSLog
 import PennyworthCore
+import UniformTypeIdentifiers
 
 private let log = Logger(subsystem: "dev.pennyworth", category: "app")
 
@@ -18,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Set while config.json is unreadable; saving is skipped so the file isn't clobbered.
     private var configError: ConfigError?
     private var hotKeyError: String?
+    private var terminalProblem: String?
 
     private var hotKey: HotKey?
     private var applications = ApplicationProvider()
@@ -107,7 +109,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Everything the user should know is misconfigured, for the status menu.
     var problems: [String] {
-        var problems = [configError?.description, hotKeyError, bookmarks?.problem].compactMap { $0 }
+        var problems = [configError?.description, hotKeyError, terminalProblem, bookmarks?.problem].compactMap { $0 }
         if themes.theme(withID: config.theme) == nil {
             problems.append("Unknown theme \"\(config.theme)\", using \(currentTheme.name)")
         }
@@ -148,6 +150,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         if config.applicationFolders != previous.applicationFolders {
             rebuildApplications()
+        }
+        if config.terminal != previous.terminal {
+            updateEngine()
         }
         if config.hotkey != previous.hotkey || (userInitiated && hotKey == nil) {
             registerHotKey()
@@ -230,9 +235,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func updateEngine() {
-        let providers: [(any SearchProvider)?] = [applications, bookmarks, themeProvider, CalculatorProvider()]
+        let providers: [(any SearchProvider)?] = [
+            applications, bookmarks, themeProvider, CalculatorProvider(), TerminalProvider(terminal: resolveTerminal()),
+        ]
         launcher.model.engine = SearchEngine(providers: providers.compactMap { $0 }, history: history)
         launcher.model.refresh()
+    }
+
+    /// The `terminal` app from config.json, among the apps that can run `.command` scripts.
+    /// Falls back to Terminal.
+    private func resolveTerminal() -> URL {
+        terminalProblem = nil
+        let fallback = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal")
+            ?? URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app")
+        let wanted = config.terminal.trimmingCharacters(in: .whitespaces)
+        let candidates = UTType(filenameExtension: "command").map(NSWorkspace.shared.urlsForApplications(toOpen:)) ?? []
+        let match = candidates.first { url in
+            url.deletingPathExtension().lastPathComponent.caseInsensitiveCompare(wanted) == .orderedSame
+                || Bundle(url: url)?.bundleIdentifier?.caseInsensitiveCompare(wanted) == .orderedSame
+        }
+        if match == nil, !wanted.isEmpty, wanted.caseInsensitiveCompare("Terminal") != .orderedSame {
+            terminalProblem = "Terminal app \"\(wanted)\" not found or can't run .command scripts, using Terminal"
+        }
+        return match ?? fallback
     }
 
     private func rebuildBookmarks() {

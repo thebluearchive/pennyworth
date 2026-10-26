@@ -287,6 +287,20 @@ final class LauncherController: NSObject, NSWindowDelegate {
             hide()
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)
+        case .runInTerminal(let command, let terminal):
+            hide()
+            let script: URL
+            do {
+                script = try TerminalScript.write(running: command)
+            } catch {
+                log.error("Couldn't write a script to run \(command): \(error.localizedDescription)")
+                return
+            }
+            NSWorkspace.shared.open([script], withApplicationAt: terminal, configuration: NSWorkspace.OpenConfiguration()) { _, error in
+                guard let error else { return }
+                log.error("Failed to run \(command) in \(terminal.path): \(error.localizedDescription)")
+                try? FileManager.default.removeItem(at: script)
+            }
         case .autocomplete(let text):
             model.setQuery(text)
         case .command(let command):

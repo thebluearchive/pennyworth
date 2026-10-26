@@ -10,6 +10,7 @@ workflow. Native Swift (AppKit + SwiftUI), no dependencies.
 - **Fuzzy app search** that matches words in any order and learns from what you pick.
 - **Firefox bookmarks** by title, URL, folder, tag or keyword, kept in sync while Firefox runs.
 - **Calculator and unit conversions**: `24*7`, `3 GB in MB`, `100 f to c`.
+- **Shell commands**: `> python3` runs a command in a new terminal window.
 - **Themes**: seven built in (Tokyo Night by default), previewed live, or write your own in JSON.
 - **One config file** whose changes apply as soon as you save.
 - **Stays out of the way**: lives in the menu bar, no Dock icon, no permissions to grant.
@@ -72,6 +73,12 @@ can keep calculating.
 - **Units:** data, length, mass, volume (US), temperature, time, speed, area, energy and
   angles. For data, `GB` is 10⁹ bytes, `GiB` is 2³⁰ bytes and `Mb` is megabits.
 
+### Shell commands
+
+Type `>`, a space, then a command: `> python3`. ↩ opens a new terminal window and runs it
+in your login shell, so your `PATH`, aliases and version managers apply. The shell stays
+open afterwards. Commands run in Terminal unless you set [`terminal`](#configuration).
+
 ### Themes
 
 Type `theme` and a space (or `theme` then ↩) to browse themes. The selected theme is
@@ -91,7 +98,8 @@ config or theme files are listed in the menu bar menu.
   "maxVisibleResults": 8,
   "applicationFolders": ["~/Developer/Apps"],
   "firefoxBookmarks": true,
-  "bookmarksKeyword": "b"
+  "bookmarksKeyword": "b",
+  "terminal": "Terminal"
 }
 ```
 
@@ -103,6 +111,7 @@ config or theme files are listed in the menu bar menu.
 | `applicationFolders` | Folders to search in addition to `/Applications`, `/System/Applications`, `~/Applications` and the system CoreServices apps. |
 | `firefoxBookmarks` | Set to `false` to turn off bookmark search. All Firefox profiles are read, default profile first. |
 | `bookmarksKeyword` | What to type before a bookmark search. Set to `""` to mix bookmarks into every search. |
+| `terminal` | The app that runs `>` commands: `"Terminal"`, `"iTerm"`, `"Ghostty"`, or another app that opens `.command` scripts. A bundle id works too. |
 
 ## Custom themes
 
