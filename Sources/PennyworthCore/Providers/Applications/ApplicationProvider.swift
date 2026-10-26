@@ -40,12 +40,14 @@ public final class ApplicationProvider: SearchProvider {
         let snapshot = entries.withLock { $0 }
 
         return snapshot.compactMap { entry -> SearchResult? in
-            var best: (match: FuzzyMatch, isPrimary: Bool)?
+            var best: FuzzyMatch?
+            // Highlighted even when an alternate name scores higher: `chrome` is an exact
+            // match for Chrome's bundle name, but it's "Google Chrome" that's shown.
+            var titleMatch: FuzzyMatch?
             for (index, candidate) in entry.candidates.enumerated() {
                 guard let match = FuzzyMatcher.match(query.fuzzy, in: candidate) else { continue }
-                if best == nil || match.score > best!.match.score {
-                    best = (match, index == 0)
-                }
+                if index == 0 { titleMatch = match }
+                if best == nil || match.score > best!.score { best = match }
             }
             guard let best else { return nil }
 
@@ -55,8 +57,8 @@ public final class ApplicationProvider: SearchProvider {
                 title: app.name,
                 subtitle: (app.url.path as NSString).abbreviatingWithTildeInPath,
                 icon: .file(app.url),
-                score: best.match.score,
-                titleMatches: best.isPrimary ? best.match.positions : [],
+                score: best.score,
+                titleMatches: titleMatch?.positions ?? [],
                 action: .open(app.url),
                 alternateAction: .revealInFinder(app.url),
                 autocomplete: app.name)

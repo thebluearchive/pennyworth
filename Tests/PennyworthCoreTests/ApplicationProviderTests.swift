@@ -121,6 +121,13 @@ final class FakeApplications {
         #expect(result.titleMatches.isEmpty)
     }
 
+    @Test func highlightsTitleWhenAnAlternateNameMatchesBetter() async throws {
+        let provider = try provider([("Google Chrome.app", "Chrome")])
+        let result = try #require(await provider.search(SearchQuery("chrome")).first)
+        #expect(result.title == "Google Chrome")
+        #expect(result.titleMatches == Array(7...12))
+    }
+
     @Test func producesOpenAndRevealActions() async throws {
         let provider = try provider([("Notes.app", nil)])
         let result = try #require(await provider.search(SearchQuery("notes")).first)
