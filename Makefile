@@ -11,7 +11,7 @@ TEST_FLAGS ?= -Xswiftc -F$(TESTING_FW) -Xlinker -rpath -Xlinker $(TESTING_FW)
 
 APP := dist/Pennyworth.app
 
-.PHONY: build test app run install clean
+.PHONY: build test app run install demo clean
 
 build:
 	swift build $(SWIFT_FLAGS) -c $(CONFIG)
@@ -32,6 +32,10 @@ install: app
 	mkdir -p ~/Applications
 	cp -R $(APP) ~/Applications/
 	open ~/Applications/Pennyworth.app
+
+# Re-renders docs/demo.gif; needs Python 3 with Pillow.
+demo: app
+	scripts/demo-gif.sh
 
 clean:
 	rm -rf .build dist

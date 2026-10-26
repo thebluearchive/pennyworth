@@ -149,6 +149,7 @@ below. Colors are `#RRGGBB` or `#RRGGBBAA`. `cornerRadius` (default 12) and `bor
 | `make app` | Build `dist/Pennyworth.app` |
 | `make run` | Build the app and launch it, replacing any running copy |
 | `make install` | Build the app, copy it to `~/Applications` and launch it |
+| `make demo` | Re-render `docs/demo.gif` (needs Python 3 with Pillow) |
 | `make clean` | Remove `.build` and `dist` |
 
 The Makefile uses SwiftPM's native build system, because the newer default fails on
